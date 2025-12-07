@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using MeetingAssistant.Windows.Audio;
 using MeetingAssistant.Windows.Capture;
 using MeetingAssistant.Windows.Detect;
+using MeetingAssistant.Windows.AI;
 
 namespace MeetingAssistant.Windows
 {
@@ -17,6 +18,8 @@ namespace MeetingAssistant.Windows
 
         private readonly MeetingDetectorUIA _detector = new();
         private readonly NotificationService _notify = new();
+        private readonly ParakeetProvider _parakeet = new();
+        private readonly ResponseGenerator _responder = new();
         private RecorderMF? _recorder;
         private IntPtr _currentHwnd = IntPtr.Zero;
         private long _lastSeenMs = 0;
@@ -73,6 +76,10 @@ namespace MeetingAssistant.Windows
                 }
             };
             _idleTimer.Start();
+
+            // AI Init
+            _parakeet.Initialize("cpu");
+            _responder.Configure(true, "Sergio");
         }
 
         public void StartDetection() => _detector.Start();
@@ -91,6 +98,15 @@ namespace MeetingAssistant.Windows
             var file = Path.Combine(RecordingsDir(), $"meeting-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.mp4");
             var rec = new RecorderMF();
             _recorder = rec;
+
+            rec.OnAudioData += async samples => {
+                 // buffer samples? for now just send chunks
+                 var text = await _parakeet.TranscribeAsync(samples);
+                 if (_responder.ShouldTrigger(text)) {
+                     var reply = await _responder.GenerateResponseAsync(text);
+                     _notify.ShowDetection("Smart Response", reply, new() { ["type"] = "response" });
+                 }
+            };
 
             await rec.StartAsync(hwnd, file);
         }

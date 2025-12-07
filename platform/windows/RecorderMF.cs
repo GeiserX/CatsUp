@@ -19,6 +19,7 @@ namespace MeetingAssistant.Windows
         private bool _recording;
 
         public bool IsRecording => _recording;
+        public event Action<float[]>? OnAudioData;
 
         public async Task StartAsync(IntPtr hwnd, string outputPath)
         {
@@ -36,6 +37,11 @@ namespace MeetingAssistant.Windows
             _audio.OnSamples += (samples, ts, isLoopback) =>
             {
                 _writer.WriteAudioSamples(samples, ts, isLoopback ? 0 : 1);
+                // Only process mic audio for commands, or mixed? Let's send all for now or just mic?
+                // For "smart response", we probably want the OTHER person's audio (loopback).
+                // For "user name trigger", we want loopback (someone calling user).
+                // Let's assume loopback is what we care about for triggers.
+                if (isLoopback) OnAudioData?.Invoke(samples);
             };
             _audio.Configure(new AudioCaptureWASAPI.Options { CaptureLoopback = true, CaptureMic = true, SampleRate = 48000, Channels = 2 });
             _audio.Start();
