@@ -36,7 +36,7 @@ namespace MeetingAssistant.Windows.Detect
 
         public event Action<IReadOnlyList<Detection>>? OnDetected;
 
-        private Timer? _timer;
+        private System.Threading.Timer? _timer;
         private Config _cfg = new();
         private HashSet<string> _lastKeys = new();
 
@@ -49,7 +49,7 @@ namespace MeetingAssistant.Windows.Detect
         public void Start()
         {
             Stop();
-            _timer = new Timer(_ => Tick(), null, 0, _cfg.PollIntervalMs);
+            _timer = new System.Threading.Timer(_ => Tick(), null, 0, _cfg.PollIntervalMs);
         }
 
         public void Stop()

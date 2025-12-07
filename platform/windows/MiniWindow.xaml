@@ -20,7 +20,7 @@
       <Button Content="×" HorizontalAlignment="Right" DockPanel.Dock="Right" Click="Close_Click" />
     </DockPanel>
 
-    <StackPanel Orientation="Horizontal" Spacing="8" Grid.Row="1" Margin="0,8,0,8">
+    <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,8,0,8">
       <Button Content="{Binding RecordButtonText}" Click="Record_Click"/>
       <Button Content="Bookmark" Click="Bookmark_Click"/>
       <Button Content="What’s been going on?" Click="Summarize_Click"/>
