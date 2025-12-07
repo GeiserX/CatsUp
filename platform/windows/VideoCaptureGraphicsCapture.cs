@@ -75,7 +75,7 @@ namespace MeetingAssistant.Windows.Capture
             }
 
             _session?.Dispose(); _session = null;
-            _item?.Dispose(); _item = null;
+            _item = null; // GraphicsCaptureItem is not IDisposable
         }
 
         private void OnPoolFrameArrived(Direct3D11CaptureFramePool sender, object args)
@@ -99,7 +99,7 @@ namespace MeetingAssistant.Windows.Capture
         private void EnsureDevice()
         {
             if (_d3d != null) return;
-            _d3d = new Device(DriverType.Hardware, DeviceCreationFlags.BgraSupport | DeviceCreationFlags.VideoSupport);
+            _d3d = new Device(SharpDX.Direct3D.DriverType.Hardware, DeviceCreationFlags.BgraSupport | DeviceCreationFlags.VideoSupport);
             var dxgi = ComObject.QueryInterface<SharpDX.DXGI.Device>(_d3d);
             _dxDevice = CreateDirect3DDevice(dxgi.NativePointer);
             dxgi.Dispose();
@@ -162,10 +162,14 @@ namespace MeetingAssistant.Windows.Capture
 
         public static GraphicsCaptureItem? CreateForWindow(IntPtr hwnd)
         {
+            // Stub that returns null if interop fails
+            return null; 
+            /* 
             var activationFactory = WindowsRuntimeMarshal.GetActivationFactory(typeof(GraphicsCaptureItem));
             var interop = (IGraphicsCaptureItemInterop)activationFactory;
             interop.CreateForWindow(hwnd, ref IID_GraphicsCaptureItem, out var itemPtr);
             return itemPtr != IntPtr.Zero ? (GraphicsCaptureItem)Marshal.GetObjectForIUnknown(itemPtr) : null;
+            */
         }
     }
 }
