@@ -1,0 +1,54 @@
+[
+  {
+    "id": "openai",
+    "name": "OpenAI",
+    "kind": ["llm", "stt", "embeddings"],
+    "endpoint": "https://api.openai.com",
+    "apiKeyEnv": "OPENAI_API_KEY",
+    "models": {
+      "chat": ["gpt-4o", "gpt-4o-mini", "gpt-4.1-mini"],
+      "stt": ["whisper-1"],
+      "embeddings": ["text-embedding-3-small", "text-embedding-3-large"]
+    },
+    "extras": {}
+  },
+  {
+    "id": "azure-openai",
+    "name": "Azure OpenAI",
+    "kind": ["llm", "embeddings"],
+    "endpoint": "https://{your-resource}.openai.azure.com",
+    "apiKeyEnv": "AZURE_OPENAI_API_KEY",
+    "models": {
+      "chat": ["deployment:gpt-4o", "deployment:gpt-4o-mini"],
+      "stt": [],
+      "embeddings": ["deployment:text-embedding-3-small"]
+    },
+    "extras": { "apiVersion": "2024-06-01", "deploymentChat": "gpt-4o", "deploymentEmb": "text-embedding-3-small" }
+  },
+  {
+    "id": "anthropic",
+    "name": "Anthropic",
+    "kind": ["llm"],
+    "endpoint": "https://api.anthropic.com",
+    "apiKeyEnv": "ANTHROPIC_API_KEY",
+    "models": {
+      "chat": ["claude-3-5-sonnet-20240620", "claude-3-5-haiku-20241022"],
+      "stt": [],
+      "embeddings": []
+    },
+    "extras": {}
+  },
+  {
+    "id": "google",
+    "name": "Google",
+    "kind": ["llm", "stt", "embeddings"],
+    "endpoint": "https://generativelanguage.googleapis.com",
+    "apiKeyEnv": "GOOGLE_API_KEY",
+    "models": {
+      "chat": ["gemini-1.5-flash", "gemini-1.5-pro"],
+      "stt": ["speech-to-text"],
+      "embeddings": ["text-embedding-004"]
+    },
+    "extras": {}
+  }
+]
