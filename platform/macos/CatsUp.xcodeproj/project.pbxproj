@@ -19,6 +19,7 @@
 		F10019 /* VideoCaptureSK.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10020 /* VideoCaptureSK.swift */; };
 		F10021 /* DetectionNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10022 /* DetectionNotification.swift */; };
 		F10023 /* AudioCaptureVirtualDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10024 /* AudioCaptureVirtualDevice.swift */; };
+		F10027 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10028 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +38,7 @@
 		F10024 /* AudioCaptureVirtualDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureVirtualDevice.swift; sourceTree = "<group>"; };
 		F10025 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F10026 /* CatsUp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CatsUp.entitlements; sourceTree = "<group>"; };
+		F10028 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -48,6 +50,17 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F10031 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F10027 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXGroup section */
 		F10040 = {
@@ -75,6 +88,7 @@
 				F10024 /* AudioCaptureVirtualDevice.swift */,
 				F10025 /* Info.plist */,
 				F10026 /* CatsUp.entitlements */,
+				F10028 /* Assets.xcassets */,
 			);
 			path = ".";
 			sourceTree = "<group>";
@@ -96,6 +110,7 @@
 			buildPhases = (
 				F10051 /* Sources */,
 				F10030 /* Frameworks */,
+				F10031 /* Resources */,
 			);
 			buildRules = (
 			);
