@@ -4,6 +4,7 @@
 
 import SwiftUI
 import UserNotifications
+import Carbon.HIToolbox
 
 @main
 struct CatsUpApp: App {
@@ -30,12 +31,35 @@ struct CatsUpApp: App {
 // MARK: - App Delegate
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    private var hotKeyMonitor: Any?
+    
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Request notification permissions
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
         
         // Hide dock icon (menu bar only)
         NSApp.setActivationPolicy(.accessory)
+        
+        // Register global hotkey (Ctrl+Option+A) for quick ask
+        registerGlobalHotkey()
+    }
+    
+    func applicationWillTerminate(_ notification: Notification) {
+        if let monitor = hotKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+    }
+    
+    private func registerGlobalHotkey() {
+        // Ctrl+Option+A to open quick ask panel
+        hotKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { event in
+            // Check for Ctrl+Option+A (keyCode 0 is 'A')
+            if event.modifierFlags.contains([.control, .option]) && event.keyCode == 0 {
+                DispatchQueue.main.async {
+                    QuickAskPanel.shared.show()
+                }
+            }
+        }
     }
 }
 
@@ -499,5 +523,160 @@ struct MenuPulsingDot: View {
                 value: isAnimating
             )
             .onAppear { isAnimating = true }
+    }
+}
+
+// MARK: - Quick Ask Panel (Spotlight-style input)
+
+@MainActor
+final class QuickAskPanel {
+    static let shared = QuickAskPanel()
+    
+    private var window: NSWindow?
+    private var hostingView: NSHostingView<QuickAskView>?
+    
+    func show() {
+        // Don't show if not recording
+        guard MeetingCoordinator.shared.isRecording else {
+            // Show notification that no meeting is active
+            let content = UNMutableNotificationContent()
+            content.title = "No Active Meeting"
+            content.body = "Start recording a meeting first to ask questions."
+            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+            UNUserNotificationCenter.current().add(request)
+            return
+        }
+        
+        if let window = window {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        
+        let view = QuickAskView { [weak self] in
+            self?.hide()
+        }
+        let hosting = NSHostingView(rootView: view)
+        hostingView = hosting
+        
+        let window = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 80),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        
+        window.contentView = hosting
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = true
+        window.level = .floating
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.isMovableByWindowBackground = true
+        
+        // Center on screen
+        if let screen = NSScreen.main {
+            let screenFrame = screen.visibleFrame
+            let x = screenFrame.midX - 300
+            let y = screenFrame.midY + 100
+            window.setFrameOrigin(NSPoint(x: x, y: y))
+        }
+        
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        
+        self.window = window
+    }
+    
+    func hide() {
+        window?.close()
+        window = nil
+        hostingView = nil
+    }
+}
+
+struct QuickAskView: View {
+    @ObservedObject var coordinator = MeetingCoordinator.shared
+    @State private var question = ""
+    @FocusState private var isFocused: Bool
+    let onDismiss: () -> Void
+    
+    private let accentGradient = LinearGradient(
+        colors: [Color(hex: "6366F1"), Color(hex: "8B5CF6")],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 20))
+                    .foregroundStyle(accentGradient)
+                
+                TextField("Ask anything about the meeting...", text: $question)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(.white)
+                    .focused($isFocused)
+                    .onSubmit {
+                        submitQuestion()
+                    }
+                    .onExitCommand {
+                        onDismiss()
+                    }
+                
+                if coordinator.isAIResponding {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .tint(Color(hex: "8B5CF6"))
+                } else {
+                    Button {
+                        submitQuestion()
+                    } label: {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(accentGradient)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(question.isEmpty)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            
+            // Show response if available
+            if !coordinator.lastAIResponse.isEmpty {
+                Divider()
+                    .background(Color.white.opacity(0.1))
+                
+                ScrollView {
+                    Text(coordinator.lastAIResponse)
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.9))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                }
+                .frame(maxHeight: 200)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(hex: "1A1B26").opacity(0.98))
+                .shadow(color: .black.opacity(0.5), radius: 30, y: 10)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        )
+        .onAppear {
+            isFocused = true
+        }
+    }
+    
+    private func submitQuestion() {
+        guard !question.isEmpty else { return }
+        coordinator.askQuestion(question)
+        question = ""
     }
 }

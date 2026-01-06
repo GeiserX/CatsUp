@@ -40,6 +40,7 @@ public final class MeetingCoordinator: ObservableObject {
         public var showInterimResults: Bool = true
         public var notifyOnTrigger: Bool = true
         public var speakResponses: Bool = false
+        public var askHotkey: String = "⌃⌥A" // Ctrl+Option+A to ask a question
         public var recordingsDirectory: URL?
         
         public init() {
