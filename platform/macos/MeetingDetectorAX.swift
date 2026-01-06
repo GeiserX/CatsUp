@@ -31,16 +31,18 @@ public final class MeetingDetectorAX {
     private var config = Config()
     private var lastHits = Set<String>() // key = app:pid:windowId
     private let queue = DispatchQueue(label: "MeetingDetectorAX.timer")
+    private var storedCallback: (([Detection]) -> Void)?
 
     public func configure(_ cfg: Config) {
         self.config = cfg
-        if timer != nil {
+        if timer != nil, let callback = storedCallback {
             stop()
-            start()
+            start(onDetected: callback)
         }
     }
 
     public func start(onDetected: @escaping ([Detection]) -> Void) {
+        storedCallback = onDetected
         stop()
         let t = DispatchSource.makeTimerSource(queue: queue)
         t.schedule(deadline: .now(), repeating: .milliseconds(config.pollIntervalMs))

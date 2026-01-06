@@ -15,10 +15,11 @@ public final class VideoCaptureSK: NSObject {
         public var height: Int = 1080
         public var fps: Int = 30
         public var includeCursor: Bool = false
-        // Add a read-only accessor so other components (RecorderSK) can attach audio output.
-        public var currentStream: SCStream? { stream }
         public init() {}
     }
+    
+    // Public accessor for the current stream (so RecorderSK can attach audio)
+    public var currentStream: SCStream? { stream }
 
     private final class VideoOutput: NSObject, SCStreamOutput {
         let onFrame: (CVPixelBuffer, CMTime) -> Void
@@ -74,23 +75,21 @@ public final class VideoCaptureSK: NSObject {
         self.videoOutput = videoOut
         try stream.addStreamOutput(videoOut, type: .screen, sampleHandlerQueue: .main)
 
-        try stream.startCapture()
+        try await stream.startCapture()
         isRunning = true
     }
 
     public func stop() {
         guard isRunning else { return }
-        defer {
-            isRunning = false
-            videoOutput = nil
-            stream = nil
-            contentFilter = nil
+        isRunning = false
+        
+        Task {
+            try? await stream?.stopCapture()
         }
-        do {
-            try stream?.stopCapture()
-        } catch {
-            // Ignore stop errors
-        }
+        
+        videoOutput = nil
+        stream = nil
+        contentFilter = nil
     }
 }
 
