@@ -153,6 +153,57 @@ public final class MeetingCoordinator: ObservableObject {
         }
     }
     
+    /// Manual recording - finds the largest Teams/Zoom/Slack window and starts recording
+    public func startRecordingManually() {
+        guard !isRecording else { return }
+        
+        // Find best meeting window
+        let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let infoList = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else {
+            state = .error("Cannot access windows")
+            return
+        }
+        
+        var bestWindow: (windowId: CGWindowID, appName: String, area: CGFloat)? = nil
+        
+        for info in infoList {
+            guard let ownerName = info[kCGWindowOwnerName as String] as? String,
+                  let windowIdNum = info[kCGWindowNumber as String] as? NSNumber,
+                  let boundsDict = info[kCGWindowBounds as String] as? [String: Any],
+                  let width = boundsDict["Width"] as? CGFloat,
+                  let height = boundsDict["Height"] as? CGFloat else { continue }
+            
+            let nameLower = ownerName.lowercased()
+            let isMeetingApp = nameLower.contains("teams") || nameLower.contains("zoom") || nameLower.contains("slack")
+            
+            guard isMeetingApp && width >= 400 && height >= 300 else { continue }
+            
+            let area = width * height
+            if bestWindow == nil || area > bestWindow!.area {
+                bestWindow = (CGWindowID(truncating: windowIdNum), ownerName, area)
+            }
+        }
+        
+        guard let window = bestWindow else {
+            state = .error("No Teams, Zoom, or Slack window found")
+            return
+        }
+        
+        currentWindowId = window.windowId
+        currentMeeting = MeetingInfo(
+            app: window.appName.lowercased().contains("zoom") ? "zoom" : 
+                 window.appName.lowercased().contains("slack") ? "slack" : "teams",
+            title: "Manual Recording",
+            startTime: Date()
+        )
+        
+        state = .meetingDetected(app: currentMeeting?.app ?? "meeting")
+        
+        Task {
+            await startRecordingAsync(windowId: window.windowId)
+        }
+    }
+    
     public func stopRecording() {
         guard isRecording else { return }
         

@@ -452,27 +452,53 @@ struct MenuContent: View {
     
     private var idleContent: some View {
         VStack(spacing: 12) {
-            // Detection toggle button
+            // Manual record button - most important action
             Button {
-                if isDetecting {
-                    coordinator.stopDetection()
-                } else {
-                    coordinator.startDetection()
-                }
+                coordinator.startRecordingManually()
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: isDetecting ? "stop.fill" : "play.fill")
-                        .font(.system(size: 12))
-                    Text(isDetecting ? "Stop Detection" : "Start Detection")
+                    Image(systemName: "record.circle")
+                        .font(.system(size: 14))
+                    Text("Record Meeting Now")
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(isDetecting ? AnyShapeStyle(Color.orange) : AnyShapeStyle(accentGradient))
+                .background(Color.red)
                 .foregroundColor(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
+            
+            // Auto-detection toggle (secondary)
+            HStack(spacing: 8) {
+                Button {
+                    if isDetecting {
+                        coordinator.stopDetection()
+                    } else {
+                        coordinator.startDetection()
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(isDetecting ? Color.green : Color.gray)
+                            .frame(width: 8, height: 8)
+                        Text(isDetecting ? "Auto-detect ON" : "Auto-detect OFF")
+                            .font(.system(size: 11))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.primary.opacity(0.05))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                
+                Spacer()
+                
+                Text("Detects Teams, Zoom, Slack")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+            }
             
             // Recent recordings
             RecordingsSection()

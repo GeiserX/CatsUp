@@ -83,13 +83,39 @@ public final class MeetingDetectorAX {
         hasEstablishedBaseline = false
     }
     
+    private static let logFile: URL = {
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return dir.appendingPathComponent("catsup_detector.log")
+    }()
+    
+    private func log(_ message: String) {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let line = "[\(timestamp)] \(message)\n"
+        NSLog("%@", message) // Also log to system log
+        if let data = line.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: Self.logFile.path) {
+                if let handle = try? FileHandle(forWritingTo: Self.logFile) {
+                    handle.seekToEndOfFile()
+                    handle.write(data)
+                    handle.closeFile()
+                }
+            } else {
+                try? data.write(to: Self.logFile)
+            }
+        }
+    }
+    
     private func establishBaseline() {
         let windows = getWindowsByApp()
         for (app, wins) in windows {
             baselineWindowCounts[app] = wins.count
+            log("Baseline: \(app) = \(wins.count) windows")
+            for (_, bounds) in wins {
+                log("  - \(Int(bounds.width))x\(Int(bounds.height))")
+            }
         }
         hasEstablishedBaseline = true
-        print("[MeetingDetector] Baseline established: \(baselineWindowCounts)")
+        log("Baseline established. Log file: \(Self.logFile.path)")
     }
 
     // MARK: - Scan windows
@@ -135,7 +161,7 @@ public final class MeetingDetectorAX {
             
             // Identify which meeting app this is
             let app: Detection.App
-            if normalizedName.contains("teams") || normalizedName.contains("msteams") {
+            if normalizedName.contains("microsoft teams") || normalizedName.contains("teams") || normalizedName.contains("msteams") {
                 app = .teams
             } else if normalizedName.contains("zoom") {
                 app = .zoom
@@ -150,6 +176,8 @@ public final class MeetingDetectorAX {
             let currentCount = windows.count
             let hasNewWindows = currentCount > baseline
             
+            log("Checking \(appName): \(currentCount) windows (baseline: \(baseline), new: \(hasNewWindows))")
+            
             // Analyze windows for meeting indicators
             for (info, bounds) in windows {
                 guard let pid = info[kCGWindowOwnerPID as String] as? pid_t,
@@ -160,25 +188,32 @@ public final class MeetingDetectorAX {
                 let windowLayer = info[kCGWindowLayer as String] as? Int ?? 0
                 
                 // Calculate confidence based on multiple factors
-                var confidence: Double = 0.3
+                var confidence: Double = 0.2
                 var phase = "unknown"
                 
-                // Factor 1: New window appeared (strong indicator)
+                // Check if this app is frontmost (active)
+                let frontApp = NSWorkspace.shared.frontmostApplication
+                let isFrontmost = frontApp?.localizedName == appName
+                
+                // Factor 1: New window appeared compared to baseline - STRONG signal
                 if hasNewWindows {
-                    confidence += 0.25
-                    print("[MeetingDetector] \(appName): New window detected (baseline: \(baseline), current: \(currentCount))")
+                    confidence += 0.5
+                    phase = "in_call"
+                    log("\(appName): NEW window detected! baseline=\(baseline), current=\(currentCount)")
                 }
                 
-                // Factor 2: Window size typical of meeting (16:9 or similar, reasonably large)
+                // Factor 2: Multiple windows AND frontmost app - likely in meeting
+                if currentCount >= 2 && isFrontmost {
+                    confidence += 0.35
+                    phase = "in_call"
+                    log("\(appName): Frontmost with \(currentCount) windows - likely in meeting")
+                }
+                
+                // Factor 3: Window size typical of meeting (reasonably large)
                 let aspectRatio = bounds.width / bounds.height
                 let isMeetingSize = bounds.width >= 600 && bounds.height >= 400
-                let hasVideoAspect = aspectRatio >= 1.2 && aspectRatio <= 2.0
+                let hasVideoAspect = aspectRatio >= 1.0 && aspectRatio <= 2.5
                 if isMeetingSize && hasVideoAspect {
-                    confidence += 0.15
-                }
-                
-                // Factor 3: Multiple windows from same app (call + controls)
-                if currentCount >= 2 {
                     confidence += 0.15
                 }
                 
@@ -187,52 +222,61 @@ public final class MeetingDetectorAX {
                     confidence += 0.1
                 }
                 
-                // Factor 5: Title-based detection (language-agnostic patterns)
+                // Factor 5: Has multiple large windows (even if not frontmost)
+                if currentCount >= 2 {
+                    confidence += 0.1
+                }
+                
+                // Factor 5: Title-based detection (if title exists)
                 let titleLower = windowTitle.lowercased()
                 
-                // Check for participant count pattern (works in any language): "· 2" or "(3)" etc
-                let hasParticipantCount = titleLower.range(of: "[·•\\(]\\s*\\d+", options: .regularExpression) != nil
-                if hasParticipantCount {
-                    confidence += 0.3
-                    phase = "in_call"
-                }
-                
-                // Check for duration pattern: "00:00" or "1:23:45"
-                let hasDuration = titleLower.range(of: "\\d{1,2}:\\d{2}", options: .regularExpression) != nil
-                if hasDuration {
-                    confidence += 0.25
-                    phase = "in_call"
-                }
-                
-                // Common meeting keywords (multi-language)
-                let meetingKeywords = ["meeting", "call", "reunión", "llamada", "réunion", "appel", 
-                                       "besprechung", "anruf", "会议", "通话", "ミーティング", "通話",
-                                       "in a call", "in call", "presenting", "screen share"]
-                for keyword in meetingKeywords {
-                    if titleLower.contains(keyword) {
-                        confidence += 0.2
-                        if keyword.contains("present") || keyword.contains("share") {
-                            phase = "presenting"
-                        } else {
-                            phase = "in_call"
+                if !titleLower.isEmpty {
+                    // Check for participant count pattern: "· 2" or "(3)" etc
+                    let hasParticipantCount = titleLower.range(of: "[·•\\(]\\s*\\d+", options: .regularExpression) != nil
+                    if hasParticipantCount {
+                        confidence += 0.3
+                        phase = "in_call"
+                    }
+                    
+                    // Check for duration pattern: "00:00" or "1:23:45"
+                    let hasDuration = titleLower.range(of: "\\d{1,2}:\\d{2}", options: .regularExpression) != nil
+                    if hasDuration {
+                        confidence += 0.25
+                        phase = "in_call"
+                    }
+                    
+                    // Common meeting keywords (multi-language)
+                    let meetingKeywords = ["meeting", "call", "reunión", "llamada", "réunion", "appel", 
+                                           "besprechung", "anruf", "会议", "通话", "ミーティング", "通話",
+                                           "in a call", "in call", "presenting", "screen share"]
+                    for keyword in meetingKeywords {
+                        if titleLower.contains(keyword) {
+                            confidence += 0.2
+                            if keyword.contains("present") || keyword.contains("share") {
+                                phase = "presenting"
+                            } else {
+                                phase = "in_call"
+                            }
+                            break
                         }
-                        break
+                    }
+                    
+                    // Pre-join keywords (multi-language)
+                    let prejoinKeywords = ["join", "unirse", "rejoindre", "beitreten", "参加", "参加する",
+                                           "preview", "vista previa", "aperçu", "vorschau"]
+                    for keyword in prejoinKeywords {
+                        if titleLower.contains(keyword) {
+                            phase = "prejoin"
+                            confidence += 0.1
+                            break
+                        }
                     }
                 }
                 
-                // Pre-join keywords (multi-language)
-                let prejoinKeywords = ["join", "unirse", "rejoindre", "beitreten", "参加", "参加する",
-                                       "preview", "vista previa", "aperçu", "vorschau"]
-                for keyword in prejoinKeywords {
-                    if titleLower.contains(keyword) {
-                        phase = "prejoin"
-                        confidence += 0.1
-                        break
-                    }
-                }
+                log("\(appName) window: \(Int(bounds.width))x\(Int(bounds.height)), conf=\(String(format: "%.2f", confidence)), phase=\(phase)")
                 
                 // Only add if we have some confidence
-                if confidence >= 0.4 {
+                if confidence >= 0.5 {
                     let detection = Detection(
                         app: app,
                         processName: appName,
@@ -244,6 +288,7 @@ public final class MeetingDetectorAX {
                         meetingTitle: windowTitle.isEmpty ? nil : windowTitle
                     )
                     hits.append(detection)
+                    log("✓ DETECTION: \(app.rawValue) conf=\(String(format: "%.2f", confidence)) phase=\(phase)")
                 }
             }
         }
