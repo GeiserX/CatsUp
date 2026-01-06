@@ -496,8 +496,16 @@ struct MenuContent: View {
             Button {
                 MiniWindowController.shared.show()
             } label: {
-                Label("Open Window", systemImage: "rectangle.on.rectangle")
-                    .font(.system(size: 12))
+                Label("Window", systemImage: "rectangle.on.rectangle")
+                    .font(.system(size: 11))
+            }
+            .buttonStyle(.plain)
+            
+            Button {
+                RecordingsWindowController.shared.show()
+            } label: {
+                Label("Recordings", systemImage: "video.fill")
+                    .font(.system(size: 11))
             }
             .buttonStyle(.plain)
             
@@ -511,6 +519,7 @@ struct MenuContent: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+            .help("Settings")
             
             Button {
                 NSApplication.shared.terminate(nil)
@@ -520,6 +529,7 @@ struct MenuContent: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+            .help("Quit CatsUp")
         }
     }
     
