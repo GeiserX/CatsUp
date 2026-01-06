@@ -81,10 +81,12 @@ public final class MeetingDetectorAX {
         for info in infoList {
             guard
                 let ownerName = info[kCGWindowOwnerName as String] as? String,
-                let windowTitle = info[kCGWindowName as String] as? String,
                 let pid = info[kCGWindowOwnerPID as String] as? pid_t,
                 let windowIdNum = info[kCGWindowNumber as String] as? NSNumber
             else { continue }
+            
+            // Window title may be nil for some windows
+            let windowTitle = info[kCGWindowName as String] as? String ?? ""
 
             let windowId = CGWindowID(truncating: windowIdNum)
 
@@ -109,13 +111,17 @@ public final class MeetingDetectorAX {
     // MARK: - Heuristics (aligned with your TS providers)
 
     private func classify(ownerName: String, title: String) -> (Detection.App, Double, String, String?) {
-        // Teams
+        // Teams (process name can be "Microsoft Teams", "Teams", or "MSTeams")
         if ownerName.range(of: "Teams", options: .caseInsensitive) != nil ||
+            ownerName.range(of: "MSTeams", options: .caseInsensitive) != nil ||
             (title.range(of: "Teams", options: .caseInsensitive) != nil &&
              title.range(of: "(Meeting|Call|Presenting|Stage|Lobby|Join now|Live event)", options: [.regularExpression, .caseInsensitive]) != nil) {
-            let conf = 0.6
-                + (title.range(of: "Teams", options: .caseInsensitive) != nil ? 0.2 : 0.0)
-                + (title.range(of: "(Meeting|Call|Presenting|Stage|Lobby|Join now|Live event)", options: [.regularExpression, .caseInsensitive]) != nil ? 0.2 : 0.0)
+            // Higher base confidence for process match
+            var conf = 0.75
+            if ownerName.range(of: "MSTeams", options: .caseInsensitive) != nil { conf = 0.85 }
+            if title.range(of: "(Meeting|Call|Presenting|Stage|Lobby|Join now|Live event)", options: [.regularExpression, .caseInsensitive]) != nil {
+                conf += 0.15
+            }
             let phase = inferPhaseTeams(title: title)
             let mt = extractTitle(base: title, appMarker: "Microsoft Teams", generic: ["Conference call","Meeting","Call","Presenting","Stage","Lobby"])
             return (.teams, min(1.0, conf), phase, mt)

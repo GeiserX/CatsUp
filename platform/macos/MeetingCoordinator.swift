@@ -120,10 +120,12 @@ public final class MeetingCoordinator: ObservableObject {
         
         var detectorConfig = MeetingDetectorAX.Config()
         detectorConfig.pollIntervalMs = 1000
-        detectorConfig.minConfidence = 0.7
+        detectorConfig.minConfidence = 0.5  // Lower threshold - MSTeams gives 0.85
         detector.configure(detectorConfig)
         detector.start { [weak self] detections in
             guard let self, let best = detections.max(by: { $0.confidence < $1.confidence }) else { return }
+            
+            print("[CatsUp] Meeting detected: \(best.app.rawValue) - \(best.processName) - conf: \(best.confidence) - phase: \(best.phase) - title: \(best.windowTitle)")
             
             Task { @MainActor in
                 self.handleMeetingDetected(best)
