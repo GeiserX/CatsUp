@@ -155,6 +155,21 @@ struct GeneralSettingsTab: View {
                 )
             }
             
+            SettingsSection(title: "Quick Ask") {
+                SettingsRow(
+                    icon: "keyboard",
+                    title: "Hotkey",
+                    description: "Press ⌃⌥A (Ctrl+Option+A) to ask questions during meetings"
+                ) {
+                    Text("⌃⌥A")
+                        .font(.system(size: 12, design: .monospaced))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(4)
+                }
+            }
+            
             Spacer()
         }
     }
