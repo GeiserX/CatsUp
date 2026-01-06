@@ -112,16 +112,24 @@ public final class MeetingDetectorAX {
 
     private func classify(ownerName: String, title: String) -> (Detection.App, Double, String, String?) {
         // Teams (process name can be "Microsoft Teams", "Teams", or "MSTeams")
-        if ownerName.range(of: "Teams", options: .caseInsensitive) != nil ||
-            ownerName.range(of: "MSTeams", options: .caseInsensitive) != nil ||
-            (title.range(of: "Teams", options: .caseInsensitive) != nil &&
-             title.range(of: "(Meeting|Call|Presenting|Stage|Lobby|Join now|Live event)", options: [.regularExpression, .caseInsensitive]) != nil) {
-            // Higher base confidence for process match
-            var conf = 0.75
-            if ownerName.range(of: "MSTeams", options: .caseInsensitive) != nil { conf = 0.85 }
-            if title.range(of: "(Meeting|Call|Presenting|Stage|Lobby|Join now|Live event)", options: [.regularExpression, .caseInsensitive]) != nil {
-                conf += 0.15
-            }
+        // ONLY detect if there's a meeting-related window title - not just any Teams window
+        let isTeamsProcess = ownerName.range(of: "Teams", options: .caseInsensitive) != nil ||
+                             ownerName.range(of: "MSTeams", options: .caseInsensitive) != nil
+        
+        // Meeting indicators in window title
+        let meetingKeywords = "(Meeting|Call|Presenting|Stage|Lobby|Join now|Live event|Join|Reunión|Llamada|in a call|In call)"
+        let hasMeetingTitle = title.range(of: meetingKeywords, options: [.regularExpression, .caseInsensitive]) != nil
+        
+        // Pre-join indicators (the window that shows before joining)
+        let prejoinKeywords = "(Join now|Ready to join|Joining|Preview|Choose your|audio and video)"
+        let isPrejoin = title.range(of: prejoinKeywords, options: [.regularExpression, .caseInsensitive]) != nil
+        
+        // Only trigger if it's Teams AND has meeting-related title
+        if isTeamsProcess && (hasMeetingTitle || isPrejoin) {
+            var conf = 0.6
+            if hasMeetingTitle { conf += 0.25 }
+            if isPrejoin { conf += 0.15 }
+            
             let phase = inferPhaseTeams(title: title)
             let mt = extractTitle(base: title, appMarker: "Microsoft Teams", generic: ["Conference call","Meeting","Call","Presenting","Stage","Lobby"])
             return (.teams, min(1.0, conf), phase, mt)
@@ -165,9 +173,22 @@ public final class MeetingDetectorAX {
     }
 
     private func inferPhaseTeams(title: String) -> String {
-        if title.range(of: "(Presenting|Sharing|Share screen|Stage)", options: [.regularExpression, .caseInsensitive]) != nil { return "presenting" }
-        if title.range(of: "(Lobby|Waiting|Pre-?join|Join now)", options: [.regularExpression, .caseInsensitive]) != nil { return "prejoin" }
-        if title.range(of: "(Meeting|Call|Live event|In a call)", options: [.regularExpression, .caseInsensitive]) != nil { return "in_call" }
+        // Check for presenting first (highest priority)
+        if title.range(of: "(Presenting|Sharing|Share screen|Stage)", options: [.regularExpression, .caseInsensitive]) != nil { 
+            return "presenting" 
+        }
+        // Pre-join indicators (join dialog, preview screen)
+        if title.range(of: "(Lobby|Waiting|Pre-?join|Join now|Ready to join|Joining|Choose your|audio and video|Preview)", options: [.regularExpression, .caseInsensitive]) != nil { 
+            return "prejoin" 
+        }
+        // Actually in call - these titles appear when you're connected
+        if title.range(of: "(In a call|In call|with \\d+ participant|Live event|Currently in)", options: [.regularExpression, .caseInsensitive]) != nil { 
+            return "in_call" 
+        }
+        // Generic meeting/call title - check this last as it's less specific
+        if title.range(of: "(Meeting|Call|Reunión|Llamada)", options: [.regularExpression, .caseInsensitive]) != nil { 
+            return "in_call" 
+        }
         return "unknown"
     }
 
