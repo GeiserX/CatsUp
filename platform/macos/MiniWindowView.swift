@@ -545,3 +545,4 @@ final class MiniWindowController {
     }
 }
 
+

@@ -86,3 +86,4 @@ platform/macos/
 - Check network connectivity
 - For Ollama, ensure it's running locally on port 11434
 
+
