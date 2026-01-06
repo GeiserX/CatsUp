@@ -213,7 +213,11 @@ public final class MeetingCoordinator: ObservableObject {
     // MARK: - Private Methods
     
     private func handleMeetingDetected(_ detection: MeetingDetectorAX.Detection) {
-        guard state == .detecting else { return }
+        // Allow updates when detecting OR when waiting for call to start
+        guard state == .detecting || 
+              (state == .meetingDetected(app: detection.app.rawValue) && detection.phase == "in_call") else { 
+            return 
+        }
         
         currentWindowId = detection.windowId
         currentMeeting = MeetingInfo(
@@ -222,13 +226,24 @@ public final class MeetingCoordinator: ObservableObject {
             startTime: Date()
         )
         
-        state = .meetingDetected(app: detection.app.rawValue)
+        // If pre-join, just show detected state but don't record yet
+        if detection.phase == "prejoin" || detection.phase == "lobby" {
+            print("[CatsUp] Pre-join detected, waiting for call to start...")
+            state = .meetingDetected(app: detection.app.rawValue)
+            // Keep detecting until in_call
+            return
+        }
         
-        if config.autoStartRecording {
-            startRecording()
-        } else {
-            // Show notification asking user
-            showMeetingDetectedNotification(detection)
+        // Only record when actually in call
+        if detection.phase == "in_call" || detection.phase == "presenting" {
+            print("[CatsUp] In-call detected, starting recording...")
+            state = .meetingDetected(app: detection.app.rawValue)
+            
+            if config.autoStartRecording && !isRecording {
+                startRecording()
+            } else if !config.autoStartRecording {
+                showMeetingDetectedNotification(detection)
+            }
         }
     }
     
