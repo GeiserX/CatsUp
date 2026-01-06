@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" fill="black">
+  <!-- Elegant cat head with arrow tail - optimized for menu bar -->
+  
+  <!-- Cat head -->
+  <ellipse cx="8" cy="13" rx="5.5" ry="5" fill="black"/>
+  
+  <!-- Left ear -->
+  <path d="M3.5 10 Q2 5 3 3.5 Q5 5 6 9 Z" fill="black"/>
+  
+  <!-- Right ear -->
+  <path d="M12.5 10 Q14 5 13 3.5 Q11 5 10 9 Z" fill="black"/>
+  
+  <!-- Arrow tail pointing UP -->
+  <path d="
+    M13 14
+    Q15 12 16 9
+    L16 6
+    L14 6
+    L17 1
+    L20 6
+    L18 6
+    L18 9
+    Q17 12 15 14.5
+    Z
+  " fill="black"/>
+</svg>
+

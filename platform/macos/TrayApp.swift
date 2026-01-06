@@ -42,6 +42,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Register global hotkey (Ctrl+Option+A) for quick ask
         registerGlobalHotkey()
+        
+        // Auto-start meeting detection on launch
+        Task { @MainActor in
+            MeetingCoordinator.shared.startDetection()
+        }
     }
     
     func applicationWillTerminate(_ notification: Notification) {
@@ -70,10 +75,19 @@ struct MenuBarLabel: View {
     
     var body: some View {
         HStack(spacing: 4) {
-            CatIcon(state: coordinator.state)
+            // Three cats silhouette - template style (monochrome)
+            Image("MenuBarIcon")
+                .renderingMode(.template)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
                 .frame(width: 18, height: 18)
             
             if coordinator.isRecording {
+                // Recording indicator dot
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 6, height: 6)
+                
                 Text(formatTime(coordinator.elapsedTime))
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundColor(.secondary)
@@ -430,25 +444,38 @@ struct MenuContent: View {
     
     // MARK: - Idle Content
     
+    private var isDetecting: Bool {
+        if case .detecting = coordinator.state { return true }
+        if case .meetingDetected = coordinator.state { return true }
+        return false
+    }
+    
     private var idleContent: some View {
         VStack(spacing: 12) {
-            // Start detection button
+            // Detection toggle button
             Button {
-                coordinator.startDetection()
+                if isDetecting {
+                    coordinator.stopDetection()
+                } else {
+                    coordinator.startDetection()
+                }
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: "play.fill")
+                    Image(systemName: isDetecting ? "stop.fill" : "play.fill")
                         .font(.system(size: 12))
-                    Text("Start Detection")
+                    Text(isDetecting ? "Stop Detection" : "Start Detection")
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(accentGradient)
+                .background(isDetecting ? AnyShapeStyle(Color.orange) : AnyShapeStyle(accentGradient))
                 .foregroundColor(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
+            
+            // Recent recordings
+            RecordingsSection()
             
             // Config summary
             VStack(alignment: .leading, spacing: 8) {
@@ -618,6 +645,154 @@ struct ConfigRow: View {
             Text(value)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.primary)
+        }
+    }
+}
+
+// MARK: - Recordings Section
+
+struct RecordingsSection: View {
+    @State private var recordings: [RecordingFile] = []
+    
+    struct RecordingFile: Identifiable {
+        let id = UUID()
+        let url: URL
+        let name: String
+        let date: Date
+        let size: String
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                Text("Recent Recordings")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                Button {
+                    openRecordingsFolder()
+                } label: {
+                    Image(systemName: "folder.badge.gearshape")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Open Recordings Folder")
+            }
+            
+            if recordings.isEmpty {
+                Text("No recordings yet")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 8)
+            } else {
+                ForEach(recordings.prefix(3)) { recording in
+                    RecordingRow(recording: recording)
+                }
+            }
+        }
+        .padding(12)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .onAppear {
+            loadRecordings()
+        }
+    }
+    
+    private func loadRecordings() {
+        let coordinator = MeetingCoordinator.shared
+        guard let recordingsDir = coordinator.config.recordingsDirectory else { return }
+        
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: recordingsDir.path) else { return }
+        
+        do {
+            let files = try fm.contentsOfDirectory(at: recordingsDir, includingPropertiesForKeys: [.creationDateKey, .fileSizeKey])
+                .filter { $0.pathExtension == "mp4" || $0.pathExtension == "m4a" }
+                .sorted { url1, url2 in
+                    let date1 = (try? url1.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? Date.distantPast
+                    let date2 = (try? url2.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? Date.distantPast
+                    return date1 > date2
+                }
+            
+            recordings = files.prefix(5).map { url in
+                let attrs = try? url.resourceValues(forKeys: [.creationDateKey, .fileSizeKey])
+                let size = attrs?.fileSize ?? 0
+                let sizeStr = ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
+                return RecordingFile(
+                    url: url,
+                    name: url.deletingPathExtension().lastPathComponent,
+                    date: attrs?.creationDate ?? Date(),
+                    size: sizeStr
+                )
+            }
+        } catch {
+            print("Error loading recordings: \(error)")
+        }
+    }
+    
+    private func openRecordingsFolder() {
+        let coordinator = MeetingCoordinator.shared
+        if let recordingsDir = coordinator.config.recordingsDirectory {
+            // Create directory if it doesn't exist
+            try? FileManager.default.createDirectory(at: recordingsDir, withIntermediateDirectories: true)
+            NSWorkspace.shared.open(recordingsDir)
+        }
+    }
+}
+
+struct RecordingRow: View {
+    let recording: RecordingsSection.RecordingFile
+    @State private var isHovered = false
+    
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter
+    }
+    
+    var body: some View {
+        Button {
+            NSWorkspace.shared.open(recording.url)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: recording.url.pathExtension == "mp4" ? "video.fill" : "waveform")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color(hex: "7C3AED"))
+                    .frame(width: 14)
+                
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(recording.name)
+                        .font(.system(size: 11, weight: .medium))
+                        .lineLimit(1)
+                        .foregroundStyle(.primary)
+                    
+                    Text("\(dateFormatter.string(from: recording.date)) • \(recording.size)")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .background(isHovered ? Color.primary.opacity(0.05) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
         }
     }
 }
