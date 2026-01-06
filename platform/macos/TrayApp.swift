@@ -91,7 +91,7 @@ struct MenuBarLabel: View {
 // MARK: - Cat Icon (Menu Bar)
 
 struct CatIcon: View {
-    let state: MeetingCoordinator.State
+    let state: MeetingCoordinator.MeetingState
     
     private var iconColor: Color {
         switch state {
@@ -106,70 +106,121 @@ struct CatIcon: View {
         }
     }
     
+    private var arrowColor: Color {
+        switch state {
+        case .recording:
+            return Color(red: 0.95, green: 0.3, blue: 0.3)
+        case .detecting, .meetingDetected:
+            return Color(red: 1.0, green: 0.6, blue: 0.2)
+        default:
+            return Color(hex: "7C3AED")
+        }
+    }
+    
     var body: some View {
         GeometryReader { geo in
-            let size = min(geo.size.width, geo.size.height)
             ZStack {
-                // Cat face
-                CatShape()
+                // Elegant cat silhouette with arrow tail
+                CatWithArrowShape()
                     .fill(iconColor)
                 
-                // Eyes looking up when active
+                // Arrow highlight when active
                 if case .recording = state {
-                    // Animated eyes
-                    HStack(spacing: size * 0.12) {
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: size * 0.15, height: size * 0.18)
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: size * 0.15, height: size * 0.18)
-                    }
-                    .offset(y: -size * 0.08)
+                    ArrowTailShape()
+                        .fill(arrowColor)
+                        .opacity(0.9)
                 }
             }
         }
     }
 }
 
-struct CatShape: Shape {
+// Elegant cat head with arrow tail
+struct CatWithArrowShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let w = rect.width
         let h = rect.height
         
-        // Head (circle)
-        let headRadius = w * 0.38
-        let headCenter = CGPoint(x: w * 0.5, y: h * 0.55)
+        // Elegant cat head - oval
+        let headCenterX = w * 0.38
+        let headCenterY = h * 0.55
+        let headRadiusX = w * 0.30
+        let headRadiusY = w * 0.26
+        
         path.addEllipse(in: CGRect(
-            x: headCenter.x - headRadius,
-            y: headCenter.y - headRadius,
-            width: headRadius * 2,
-            height: headRadius * 2
+            x: headCenterX - headRadiusX,
+            y: headCenterY - headRadiusY,
+            width: headRadiusX * 2,
+            height: headRadiusY * 2
         ))
         
-        // Left ear
-        path.move(to: CGPoint(x: w * 0.18, y: h * 0.42))
-        path.addLine(to: CGPoint(x: w * 0.12, y: h * 0.08))
-        path.addLine(to: CGPoint(x: w * 0.38, y: h * 0.30))
-        path.closeSubpath()
-        
-        // Right ear
-        path.move(to: CGPoint(x: w * 0.82, y: h * 0.42))
-        path.addLine(to: CGPoint(x: w * 0.88, y: h * 0.08))
-        path.addLine(to: CGPoint(x: w * 0.62, y: h * 0.30))
-        path.closeSubpath()
-        
-        // Tail curving up (right side)
-        path.move(to: CGPoint(x: w * 0.78, y: h * 0.70))
+        // Left ear - elegant curved
+        path.move(to: CGPoint(x: w * 0.14, y: h * 0.48))
         path.addQuadCurve(
-            to: CGPoint(x: w * 0.95, y: h * 0.25),
-            control: CGPoint(x: w * 1.05, y: h * 0.55)
+            to: CGPoint(x: w * 0.10, y: h * 0.12),
+            control: CGPoint(x: w * 0.04, y: h * 0.32)
         )
         path.addQuadCurve(
-            to: CGPoint(x: w * 0.82, y: h * 0.55),
-            control: CGPoint(x: w * 0.92, y: h * 0.35)
+            to: CGPoint(x: w * 0.30, y: h * 0.40),
+            control: CGPoint(x: w * 0.22, y: h * 0.16)
         )
+        path.closeSubpath()
+        
+        // Right ear - elegant curved
+        path.move(to: CGPoint(x: w * 0.62, y: h * 0.48))
+        path.addQuadCurve(
+            to: CGPoint(x: w * 0.66, y: h * 0.12),
+            control: CGPoint(x: w * 0.72, y: h * 0.32)
+        )
+        path.addQuadCurve(
+            to: CGPoint(x: w * 0.46, y: h * 0.40),
+            control: CGPoint(x: w * 0.54, y: h * 0.16)
+        )
+        path.closeSubpath()
+        
+        // Arrow tail - curving from body, ending in arrow UP
+        // Tail stem
+        path.move(to: CGPoint(x: w * 0.62, y: h * 0.68))
+        path.addQuadCurve(
+            to: CGPoint(x: w * 0.80, y: h * 0.45),
+            control: CGPoint(x: w * 0.76, y: h * 0.60)
+        )
+        path.addLine(to: CGPoint(x: w * 0.80, y: h * 0.32))
+        
+        // Arrow head pointing UP
+        path.addLine(to: CGPoint(x: w * 0.70, y: h * 0.32))
+        path.addLine(to: CGPoint(x: w * 0.84, y: h * 0.10))
+        path.addLine(to: CGPoint(x: w * 0.98, y: h * 0.32))
+        path.addLine(to: CGPoint(x: w * 0.88, y: h * 0.32))
+        
+        // Back down the tail
+        path.addLine(to: CGPoint(x: w * 0.88, y: h * 0.45))
+        path.addQuadCurve(
+            to: CGPoint(x: w * 0.70, y: h * 0.70),
+            control: CGPoint(x: w * 0.84, y: h * 0.58)
+        )
+        path.closeSubpath()
+        
+        return path
+    }
+}
+
+// Just the arrow portion for highlighting
+struct ArrowTailShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let w = rect.width
+        let h = rect.height
+        
+        // Arrow head
+        path.move(to: CGPoint(x: w * 0.70, y: h * 0.32))
+        path.addLine(to: CGPoint(x: w * 0.84, y: h * 0.10))
+        path.addLine(to: CGPoint(x: w * 0.98, y: h * 0.32))
+        path.addLine(to: CGPoint(x: w * 0.88, y: h * 0.32))
+        path.addLine(to: CGPoint(x: w * 0.88, y: h * 0.44))
+        path.addLine(to: CGPoint(x: w * 0.80, y: h * 0.44))
+        path.addLine(to: CGPoint(x: w * 0.80, y: h * 0.32))
         path.closeSubpath()
         
         return path
