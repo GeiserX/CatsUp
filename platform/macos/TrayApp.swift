@@ -70,9 +70,8 @@ struct MenuBarLabel: View {
     
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: iconName)
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(iconColor)
+            CatIcon(state: coordinator.state)
+                .frame(width: 18, height: 18)
             
             if coordinator.isRecording {
                 Text(formatTime(coordinator.elapsedTime))
@@ -82,21 +81,20 @@ struct MenuBarLabel: View {
         }
     }
     
-    private var iconName: String {
-        switch coordinator.state {
-        case .recording:
-            return "waveform.circle.fill"
-        case .detecting, .meetingDetected:
-            return "waveform.badge.magnifyingglass"
-        case .error:
-            return "exclamationmark.triangle.fill"
-        default:
-            return "waveform.circle"
-        }
+    private func formatTime(_ time: TimeInterval) -> String {
+        let minutes = Int(time) / 60
+        let seconds = Int(time) % 60
+        return String(format: "%d:%02d", minutes, seconds)
     }
+}
+
+// MARK: - Cat Icon (Menu Bar)
+
+struct CatIcon: View {
+    let state: MeetingCoordinator.State
     
     private var iconColor: Color {
-        switch coordinator.state {
+        switch state {
         case .recording:
             return .red
         case .detecting, .meetingDetected:
@@ -108,10 +106,73 @@ struct MenuBarLabel: View {
         }
     }
     
-    private func formatTime(_ time: TimeInterval) -> String {
-        let minutes = Int(time) / 60
-        let seconds = Int(time) % 60
-        return String(format: "%d:%02d", minutes, seconds)
+    var body: some View {
+        GeometryReader { geo in
+            let size = min(geo.size.width, geo.size.height)
+            ZStack {
+                // Cat face
+                CatShape()
+                    .fill(iconColor)
+                
+                // Eyes looking up when active
+                if case .recording = state {
+                    // Animated eyes
+                    HStack(spacing: size * 0.12) {
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: size * 0.15, height: size * 0.18)
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: size * 0.15, height: size * 0.18)
+                    }
+                    .offset(y: -size * 0.08)
+                }
+            }
+        }
+    }
+}
+
+struct CatShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let w = rect.width
+        let h = rect.height
+        
+        // Head (circle)
+        let headRadius = w * 0.38
+        let headCenter = CGPoint(x: w * 0.5, y: h * 0.55)
+        path.addEllipse(in: CGRect(
+            x: headCenter.x - headRadius,
+            y: headCenter.y - headRadius,
+            width: headRadius * 2,
+            height: headRadius * 2
+        ))
+        
+        // Left ear
+        path.move(to: CGPoint(x: w * 0.18, y: h * 0.42))
+        path.addLine(to: CGPoint(x: w * 0.12, y: h * 0.08))
+        path.addLine(to: CGPoint(x: w * 0.38, y: h * 0.30))
+        path.closeSubpath()
+        
+        // Right ear
+        path.move(to: CGPoint(x: w * 0.82, y: h * 0.42))
+        path.addLine(to: CGPoint(x: w * 0.88, y: h * 0.08))
+        path.addLine(to: CGPoint(x: w * 0.62, y: h * 0.30))
+        path.closeSubpath()
+        
+        // Tail curving up (right side)
+        path.move(to: CGPoint(x: w * 0.78, y: h * 0.70))
+        path.addQuadCurve(
+            to: CGPoint(x: w * 0.95, y: h * 0.25),
+            control: CGPoint(x: w * 1.05, y: h * 0.55)
+        )
+        path.addQuadCurve(
+            to: CGPoint(x: w * 0.82, y: h * 0.55),
+            control: CGPoint(x: w * 0.92, y: h * 0.35)
+        )
+        path.closeSubpath()
+        
+        return path
     }
 }
 
@@ -365,7 +426,7 @@ struct MenuContent: View {
             Spacer()
             
             Button {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                openSettings()
             } label: {
                 Image(systemName: "gearshape.fill")
                     .font(.system(size: 14))
@@ -449,6 +510,10 @@ struct MenuContent: View {
             return String(format: "%d:%02d:%02d", hours, minutes, seconds)
         }
         return String(format: "%d:%02d", minutes, seconds)
+    }
+    
+    private func openSettings() {
+        SettingsWindowController.shared.show()
     }
 }
 
@@ -678,5 +743,44 @@ struct QuickAskView: View {
         guard !question.isEmpty else { return }
         coordinator.askQuestion(question)
         question = ""
+    }
+}
+
+// MARK: - Settings Window Controller
+
+@MainActor
+final class SettingsWindowController {
+    static let shared = SettingsWindowController()
+    
+    private var window: NSWindow?
+    
+    func show() {
+        if let window = window {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        
+        let settingsView = CatsUpSettingsView()
+        let hostingView = NSHostingView(rootView: settingsView)
+        
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 540, height: 480),
+            styleMask: [.titled, .closable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        
+        window.contentView = hostingView
+        window.title = "CatsUp Settings"
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = NSColor(Color(hex: "1A1B26"))
+        window.isReleasedWhenClosed = false
+        window.center()
+        
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        
+        self.window = window
     }
 }
