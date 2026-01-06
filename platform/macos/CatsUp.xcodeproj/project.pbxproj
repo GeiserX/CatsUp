@@ -1,0 +1,366 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		F10001 /* TrayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10002 /* TrayApp.swift */; };
+		F10003 /* MeetingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10004 /* MeetingCoordinator.swift */; };
+		F10005 /* TranscriptionStreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10006 /* TranscriptionStreamService.swift */; };
+		F10007 /* ResponseEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10008 /* ResponseEngine.swift */; };
+		F10009 /* MiniWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10010 /* MiniWindowView.swift */; };
+		F10011 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10012 /* SettingsView.swift */; };
+		F10013 /* MeetingDetectorAX.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10014 /* MeetingDetectorAX.swift */; };
+		F10015 /* RecorderSK.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10016 /* RecorderSK.swift */; };
+		F10017 /* AudioCaptureSK.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10018 /* AudioCaptureSK.swift */; };
+		F10019 /* VideoCaptureSK.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10020 /* VideoCaptureSK.swift */; };
+		F10021 /* DetectionNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10022 /* DetectionNotification.swift */; };
+		F10023 /* AudioCaptureVirtualDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10024 /* AudioCaptureVirtualDevice.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		F10000 /* CatsUp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CatsUp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F10002 /* TrayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrayApp.swift; sourceTree = "<group>"; };
+		F10004 /* MeetingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingCoordinator.swift; sourceTree = "<group>"; };
+		F10006 /* TranscriptionStreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionStreamService.swift; sourceTree = "<group>"; };
+		F10008 /* ResponseEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponseEngine.swift; sourceTree = "<group>"; };
+		F10010 /* MiniWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniWindowView.swift; sourceTree = "<group>"; };
+		F10012 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F10014 /* MeetingDetectorAX.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetectorAX.swift; sourceTree = "<group>"; };
+		F10016 /* RecorderSK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecorderSK.swift; sourceTree = "<group>"; };
+		F10018 /* AudioCaptureSK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureSK.swift; sourceTree = "<group>"; };
+		F10020 /* VideoCaptureSK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoCaptureSK.swift; sourceTree = "<group>"; };
+		F10022 /* DetectionNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionNotification.swift; sourceTree = "<group>"; };
+		F10024 /* AudioCaptureVirtualDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureVirtualDevice.swift; sourceTree = "<group>"; };
+		F10025 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F10026 /* CatsUp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CatsUp.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F10030 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F10040 = {
+			isa = PBXGroup;
+			children = (
+				F10041 /* CatsUp */,
+				F10042 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F10041 /* CatsUp */ = {
+			isa = PBXGroup;
+			children = (
+				F10002 /* TrayApp.swift */,
+				F10004 /* MeetingCoordinator.swift */,
+				F10006 /* TranscriptionStreamService.swift */,
+				F10008 /* ResponseEngine.swift */,
+				F10010 /* MiniWindowView.swift */,
+				F10012 /* SettingsView.swift */,
+				F10014 /* MeetingDetectorAX.swift */,
+				F10016 /* RecorderSK.swift */,
+				F10018 /* AudioCaptureSK.swift */,
+				F10020 /* VideoCaptureSK.swift */,
+				F10022 /* DetectionNotification.swift */,
+				F10024 /* AudioCaptureVirtualDevice.swift */,
+				F10025 /* Info.plist */,
+				F10026 /* CatsUp.entitlements */,
+			);
+			path = ".";
+			sourceTree = "<group>";
+		};
+		F10042 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F10000 /* CatsUp.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F10050 /* CatsUp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F10060 /* Build configuration list for PBXNativeTarget "CatsUp" */;
+			buildPhases = (
+				F10051 /* Sources */,
+				F10030 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CatsUp;
+			productName = CatsUp;
+			productReference = F10000 /* CatsUp.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F10070 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1520;
+				LastUpgradeCheck = 1520;
+				TargetAttributes = {
+					F10050 = {
+						CreatedOnToolsVersion = 15.2;
+					};
+				};
+			};
+			buildConfigurationList = F10071 /* Build configuration list for PBXProject "CatsUp" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = F10040;
+			productRefGroup = F10042 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F10050 /* CatsUp */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F10051 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F10001 /* TrayApp.swift in Sources */,
+				F10003 /* MeetingCoordinator.swift in Sources */,
+				F10005 /* TranscriptionStreamService.swift in Sources */,
+				F10007 /* ResponseEngine.swift in Sources */,
+				F10009 /* MiniWindowView.swift in Sources */,
+				F10011 /* SettingsView.swift in Sources */,
+				F10013 /* MeetingDetectorAX.swift in Sources */,
+				F10015 /* RecorderSK.swift in Sources */,
+				F10017 /* AudioCaptureSK.swift in Sources */,
+				F10019 /* VideoCaptureSK.swift in Sources */,
+				F10021 /* DetectionNotification.swift in Sources */,
+				F10023 /* AudioCaptureVirtualDevice.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		F10080 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F10081 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		F10082 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = CatsUp.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "CatsUp needs microphone access to record your voice during meetings.";
+				INFOPLIST_KEY_NSScreenCaptureUsageDescription = "CatsUp needs screen recording access to capture meeting windows.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.catsup.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		F10083 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = CatsUp.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "CatsUp needs microphone access to record your voice during meetings.";
+				INFOPLIST_KEY_NSScreenCaptureUsageDescription = "CatsUp needs screen recording access to capture meeting windows.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.catsup.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F10060 /* Build configuration list for PBXNativeTarget "CatsUp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10082 /* Debug */,
+				F10083 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F10071 /* Build configuration list for PBXProject "CatsUp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10080 /* Debug */,
+				F10081 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F10070 /* Project object */;
+}
+

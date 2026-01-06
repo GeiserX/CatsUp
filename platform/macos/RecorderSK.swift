@@ -89,7 +89,12 @@ public final class RecorderSK: NSObject {
         }
 
         // Configure capture
-        video.configure(.init(width: options.width, height: options.height, fps: options.fps, includeCursor: options.includeCursor))
+        var videoOpts = VideoCaptureSK.Options()
+        videoOpts.width = options.width
+        videoOpts.height = options.height
+        videoOpts.fps = options.fps
+        videoOpts.includeCursor = options.includeCursor
+        video.configure(videoOpts)
         try await video.start(windowId: windowId) { [weak self] pb, ts in
             guard let self else { return }
             self.handleVideo(pb: pb, ts: ts)
