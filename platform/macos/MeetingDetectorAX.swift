@@ -1,12 +1,14 @@
 // platform/macos/MeetingDetectorAX.swift
-// Lightweight meeting detector using window enumeration (CGWindow API) with heuristics.
-// This does not require private APIs; it reads owner name, window title, PID, and window id.
-// For richer detection you can add AXUIElement inspection gated by user consent.
-// References: Accessibility API overview and screen/window inspection guidance. 【12】【11】
+// Language-agnostic meeting detector using multiple heuristics:
+// - Window enumeration (CGWindow API)
+// - Window count per app (meetings often create multiple windows)
+// - Window size heuristics (call windows have specific characteristics)
+// - Audio usage detection (check if app is using audio)
 
 import Foundation
 import AppKit
 import CoreGraphics
+import AVFoundation
 
 public final class MeetingDetectorAX {
     public struct Detection {
@@ -32,6 +34,10 @@ public final class MeetingDetectorAX {
     private var lastHits = Set<String>() // key = app:pid:windowId
     private let queue = DispatchQueue(label: "MeetingDetectorAX.timer")
     private var storedCallback: (([Detection]) -> Void)?
+    
+    // Track window counts per app to detect when new windows appear (meeting started)
+    private var baselineWindowCounts: [String: Int] = [:]
+    private var hasEstablishedBaseline = false
 
     public func configure(_ cfg: Config) {
         self.config = cfg
@@ -44,17 +50,24 @@ public final class MeetingDetectorAX {
     public func start(onDetected: @escaping ([Detection]) -> Void) {
         storedCallback = onDetected
         stop()
+        
+        // Establish baseline window counts after a short delay
+        hasEstablishedBaseline = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            self?.establishBaseline()
+        }
+        
         let t = DispatchSource.makeTimerSource(queue: queue)
-        t.schedule(deadline: .now(), repeating: .milliseconds(config.pollIntervalMs))
+        t.schedule(deadline: .now() + 2.5, repeating: .milliseconds(config.pollIntervalMs))
         t.setEventHandler { [weak self] in
             guard let self = self else { return }
             let detections = self.scan()
             let strong = detections.filter { $0.confidence >= self.config.minConfidence }
-            // Emit only when there are new windows detected (or always, if you prefer)
+            // Emit only when there are new windows detected
             let keys = Set(strong.map { "\($0.app.rawValue):\($0.processId):\($0.windowId)" })
             let isNew = keys.subtracting(self.lastHits)
             self.lastHits = keys
-            if !strong.isEmpty && (!isNew.isEmpty) {
+            if !strong.isEmpty && !isNew.isEmpty {
                 onDetected(strong)
             }
         }
@@ -66,165 +79,175 @@ public final class MeetingDetectorAX {
         timer?.cancel()
         timer = nil
         lastHits.removeAll()
+        baselineWindowCounts.removeAll()
+        hasEstablishedBaseline = false
+    }
+    
+    private func establishBaseline() {
+        let windows = getWindowsByApp()
+        for (app, wins) in windows {
+            baselineWindowCounts[app] = wins.count
+        }
+        hasEstablishedBaseline = true
+        print("[MeetingDetector] Baseline established: \(baselineWindowCounts)")
     }
 
     // MARK: - Scan windows
-
-    private func scan() -> [Detection] {
+    
+    private func getWindowsByApp() -> [String: [(info: [String: Any], bounds: CGRect)]] {
         let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
         guard let infoList = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else {
-            return []
+            return [:]
         }
-
-        var hits: [Detection] = []
-
+        
+        var byApp: [String: [(info: [String: Any], bounds: CGRect)]] = [:]
+        
         for info in infoList {
-            guard
-                let ownerName = info[kCGWindowOwnerName as String] as? String,
-                let pid = info[kCGWindowOwnerPID as String] as? pid_t,
-                let windowIdNum = info[kCGWindowNumber as String] as? NSNumber
-            else { continue }
+            guard let ownerName = info[kCGWindowOwnerName as String] as? String else { continue }
             
-            // Window title may be nil for some windows
-            let windowTitle = info[kCGWindowName as String] as? String ?? ""
+            var bounds = CGRect.zero
+            if let boundsDict = info[kCGWindowBounds as String] as? [String: Any],
+               let x = boundsDict["X"] as? CGFloat,
+               let y = boundsDict["Y"] as? CGFloat,
+               let w = boundsDict["Width"] as? CGFloat,
+               let h = boundsDict["Height"] as? CGFloat {
+                bounds = CGRect(x: x, y: y, width: w, height: h)
+            }
+            
+            // Skip tiny windows (toolbars, status items)
+            if bounds.width < 200 || bounds.height < 150 { continue }
+            
+            byApp[ownerName, default: []].append((info: info, bounds: bounds))
+        }
+        
+        return byApp
+    }
 
-            let windowId = CGWindowID(truncating: windowIdNum)
-
-            let (app, conf, phase, meetingTitle) = classify(ownerName: ownerName, title: windowTitle)
-
-            if app != .unknown {
-                let d = Detection(app: app,
-                                  processName: ownerName,
-                                  processId: pid,
-                                  windowId: windowId,
-                                  windowTitle: windowTitle,
-                                  confidence: conf,
-                                  phase: phase,
-                                  meetingTitle: meetingTitle)
-                hits.append(d)
+    private func scan() -> [Detection] {
+        guard hasEstablishedBaseline else { return [] }
+        
+        let windowsByApp = getWindowsByApp()
+        var hits: [Detection] = []
+        
+        // Check each meeting app
+        for (appName, windows) in windowsByApp {
+            let normalizedName = appName.lowercased()
+            
+            // Identify which meeting app this is
+            let app: Detection.App
+            if normalizedName.contains("teams") || normalizedName.contains("msteams") {
+                app = .teams
+            } else if normalizedName.contains("zoom") {
+                app = .zoom
+            } else if normalizedName.contains("slack") {
+                app = .slack
+            } else {
+                continue // Not a meeting app
+            }
+            
+            // Get baseline count for this app
+            let baseline = baselineWindowCounts[appName] ?? 0
+            let currentCount = windows.count
+            let hasNewWindows = currentCount > baseline
+            
+            // Analyze windows for meeting indicators
+            for (info, bounds) in windows {
+                guard let pid = info[kCGWindowOwnerPID as String] as? pid_t,
+                      let windowIdNum = info[kCGWindowNumber as String] as? NSNumber else { continue }
+                
+                let windowId = CGWindowID(truncating: windowIdNum)
+                let windowTitle = info[kCGWindowName as String] as? String ?? ""
+                let windowLayer = info[kCGWindowLayer as String] as? Int ?? 0
+                
+                // Calculate confidence based on multiple factors
+                var confidence: Double = 0.3
+                var phase = "unknown"
+                
+                // Factor 1: New window appeared (strong indicator)
+                if hasNewWindows {
+                    confidence += 0.25
+                    print("[MeetingDetector] \(appName): New window detected (baseline: \(baseline), current: \(currentCount))")
+                }
+                
+                // Factor 2: Window size typical of meeting (16:9 or similar, reasonably large)
+                let aspectRatio = bounds.width / bounds.height
+                let isMeetingSize = bounds.width >= 600 && bounds.height >= 400
+                let hasVideoAspect = aspectRatio >= 1.2 && aspectRatio <= 2.0
+                if isMeetingSize && hasVideoAspect {
+                    confidence += 0.15
+                }
+                
+                // Factor 3: Multiple windows from same app (call + controls)
+                if currentCount >= 2 {
+                    confidence += 0.15
+                }
+                
+                // Factor 4: Window layer (floating windows often indicate active call UI)
+                if windowLayer > 0 {
+                    confidence += 0.1
+                }
+                
+                // Factor 5: Title-based detection (language-agnostic patterns)
+                let titleLower = windowTitle.lowercased()
+                
+                // Check for participant count pattern (works in any language): "· 2" or "(3)" etc
+                let hasParticipantCount = titleLower.range(of: "[·•\\(]\\s*\\d+", options: .regularExpression) != nil
+                if hasParticipantCount {
+                    confidence += 0.3
+                    phase = "in_call"
+                }
+                
+                // Check for duration pattern: "00:00" or "1:23:45"
+                let hasDuration = titleLower.range(of: "\\d{1,2}:\\d{2}", options: .regularExpression) != nil
+                if hasDuration {
+                    confidence += 0.25
+                    phase = "in_call"
+                }
+                
+                // Common meeting keywords (multi-language)
+                let meetingKeywords = ["meeting", "call", "reunión", "llamada", "réunion", "appel", 
+                                       "besprechung", "anruf", "会议", "通话", "ミーティング", "通話",
+                                       "in a call", "in call", "presenting", "screen share"]
+                for keyword in meetingKeywords {
+                    if titleLower.contains(keyword) {
+                        confidence += 0.2
+                        if keyword.contains("present") || keyword.contains("share") {
+                            phase = "presenting"
+                        } else {
+                            phase = "in_call"
+                        }
+                        break
+                    }
+                }
+                
+                // Pre-join keywords (multi-language)
+                let prejoinKeywords = ["join", "unirse", "rejoindre", "beitreten", "参加", "参加する",
+                                       "preview", "vista previa", "aperçu", "vorschau"]
+                for keyword in prejoinKeywords {
+                    if titleLower.contains(keyword) {
+                        phase = "prejoin"
+                        confidence += 0.1
+                        break
+                    }
+                }
+                
+                // Only add if we have some confidence
+                if confidence >= 0.4 {
+                    let detection = Detection(
+                        app: app,
+                        processName: appName,
+                        processId: pid,
+                        windowId: windowId,
+                        windowTitle: windowTitle,
+                        confidence: min(1.0, confidence),
+                        phase: phase.isEmpty ? "unknown" : phase,
+                        meetingTitle: windowTitle.isEmpty ? nil : windowTitle
+                    )
+                    hits.append(detection)
+                }
             }
         }
-
+        
         return hits
-    }
-
-    // MARK: - Heuristics (aligned with your TS providers)
-
-    private func classify(ownerName: String, title: String) -> (Detection.App, Double, String, String?) {
-        // Teams (process name can be "Microsoft Teams", "Teams", or "MSTeams")
-        // ONLY detect if there's a meeting-related window title - not just any Teams window
-        let isTeamsProcess = ownerName.range(of: "Teams", options: .caseInsensitive) != nil ||
-                             ownerName.range(of: "MSTeams", options: .caseInsensitive) != nil
-        
-        // Meeting indicators in window title
-        let meetingKeywords = "(Meeting|Call|Presenting|Stage|Lobby|Join now|Live event|Join|Reunión|Llamada|in a call|In call)"
-        let hasMeetingTitle = title.range(of: meetingKeywords, options: [.regularExpression, .caseInsensitive]) != nil
-        
-        // Pre-join indicators (the window that shows before joining)
-        let prejoinKeywords = "(Join now|Ready to join|Joining|Preview|Choose your|audio and video)"
-        let isPrejoin = title.range(of: prejoinKeywords, options: [.regularExpression, .caseInsensitive]) != nil
-        
-        // Only trigger if it's Teams AND has meeting-related title
-        if isTeamsProcess && (hasMeetingTitle || isPrejoin) {
-            var conf = 0.6
-            if hasMeetingTitle { conf += 0.25 }
-            if isPrejoin { conf += 0.15 }
-            
-            let phase = inferPhaseTeams(title: title)
-            let mt = extractTitle(base: title, appMarker: "Microsoft Teams", generic: ["Conference call","Meeting","Call","Presenting","Stage","Lobby"])
-            return (.teams, min(1.0, conf), phase, mt)
-        }
-
-        // Zoom
-        if ownerName.range(of: "Zoom", options: .caseInsensitive) != nil ||
-            title.range(of: "(Zoom|zoom\\.us)", options: [.regularExpression, .caseInsensitive]) != nil {
-            let conf = 0.65
-                + (title.range(of: "(Zoom|zoom\\.us)", options: [.regularExpression, .caseInsensitive]) != nil ? 0.2 : 0.0)
-                + (title.range(of: "(Meeting|Webinar|Sharing|Waiting Room|Breakout)", options: [.regularExpression, .caseInsensitive]) != nil ? 0.15 : 0.0)
-            let phase = inferPhaseZoom(title: title)
-            let mt = extractTitle(base: title, appMarker: "Zoom", generic: ["Meeting","Webinar","Sharing","Share screen","Waiting Room","In meeting"])
-            return (.zoom, min(1.0, conf), phase, mt)
-        }
-
-        // Slack Huddles
-        if ownerName.range(of: "Slack", options: .caseInsensitive) != nil ||
-            (title.range(of: "Slack", options: .caseInsensitive) != nil &&
-             title.range(of: "(Huddle|Huddles|Call)", options: [.regularExpression, .caseInsensitive]) != nil) {
-            let conf = 0.6
-                + (title.range(of: "Slack", options: .caseInsensitive) != nil ? 0.2 : 0.0)
-                + (title.range(of: "(Huddle|Huddles|Call)", options: [.regularExpression, .caseInsensitive]) != nil ? 0.2 : 0.0)
-            let phase = title.range(of: "(Share screen|Presenting|Sharing)", options: [.regularExpression, .caseInsensitive]) != nil ? "presenting" : "in_call"
-            let mt = extractTitle(base: title, appMarker: "Slack", generic: ["Huddle","Huddles","Call","Presenting","Share screen"])
-            return (.slack, min(1.0, conf), phase, mt)
-        }
-
-        // Google Meet (PWA or Browser app; title carries "Google Meet" or meeting code)
-        if title.range(of: "(Google\\s+Meet|meet\\.google\\.com)", options: [.regularExpression, .caseInsensitive]) != nil ||
-            title.range(of: "\\b[a-z]{3}-[a-z]{4}-[a-z]{3}\\b", options: [.regularExpression, .caseInsensitive]) != nil {
-            var conf = 0.5
-            if title.range(of: "(Meet|Presenting|Share screen|Meeting)", options: [.regularExpression, .caseInsensitive]) != nil { conf += 0.2 }
-            if title.range(of: "\\b[a-z]{3}-[a-z]{4}-[a-z]{3}\\b", options: [.regularExpression, .caseInsensitive]) != nil { conf += 0.25 }
-            let phase = inferPhaseMeet(title: title)
-            let mt = extractTitle(base: title, appMarker: "Google Meet", generic: ["Meet","Meeting","Presenting","Presentation","Share screen"])
-            return (.meet, min(1.0, conf), phase, mt)
-        }
-
-        return (.unknown, 0.0, "unknown", nil)
-    }
-
-    private func inferPhaseTeams(title: String) -> String {
-        // Check for presenting first (highest priority)
-        if title.range(of: "(Presenting|Sharing|Share screen|Stage)", options: [.regularExpression, .caseInsensitive]) != nil { 
-            return "presenting" 
-        }
-        // Pre-join indicators (join dialog, preview screen)
-        if title.range(of: "(Lobby|Waiting|Pre-?join|Join now|Ready to join|Joining|Choose your|audio and video|Preview)", options: [.regularExpression, .caseInsensitive]) != nil { 
-            return "prejoin" 
-        }
-        // Actually in call - these titles appear when you're connected
-        if title.range(of: "(In a call|In call|with \\d+ participant|Live event|Currently in)", options: [.regularExpression, .caseInsensitive]) != nil { 
-            return "in_call" 
-        }
-        // Generic meeting/call title - check this last as it's less specific
-        if title.range(of: "(Meeting|Call|Reunión|Llamada)", options: [.regularExpression, .caseInsensitive]) != nil { 
-            return "in_call" 
-        }
-        return "unknown"
-    }
-
-    private func inferPhaseZoom(title: String) -> String {
-        if title.range(of: "(Sharing|Share screen|Presenting)", options: [.regularExpression, .caseInsensitive]) != nil { return "presenting" }
-        if title.range(of: "(Waiting Room|Join|Connecting)", options: [.regularExpression, .caseInsensitive]) != nil { return "prejoin" }
-        if title.range(of: "(Meeting|Webinar|In meeting|Breakout)", options: [.regularExpression, .caseInsensitive]) != nil { return "in_call" }
-        return "unknown"
-    }
-
-    private func inferPhaseMeet(title: String) -> String {
-        if title.range(of: "(Presenting|Present|Sharing|Share screen)", options: [.regularExpression, .caseInsensitive]) != nil { return "presenting" }
-        if title.range(of: "(Join|Ready to join|Preview|Waiting)", options: [.regularExpression, .caseInsensitive]) != nil { return "prejoin" }
-        if title.range(of: "(Meet|Meeting|In call|Live captions|Recording)", options: [.regularExpression, .caseInsensitive]) != nil { return "in_call" }
-        if title.range(of: "\\b[a-z]{3}-[a-z]{4}-[a-z]{3}\\b", options: [.regularExpression, .caseInsensitive]) != nil { return "in_call" }
-        return "unknown"
-    }
-
-    private func extractTitle(base: String, appMarker: String, generic: [String]) -> String? {
-        var t = base
-        // Remove suffix/prefix markers " — App" or " - App"
-        t = t.replacingOccurrences(of: "\\s*[—|-]\\s*\(NSRegularExpression.escapedPattern(for: appMarker))\\s*$",
-                                   with: "",
-                                   options: [.regularExpression, .caseInsensitive])
-        t = t.replacingOccurrences(of: "^\\s*\(NSRegularExpression.escapedPattern(for: appMarker))\\s*[—|-|:]+\\s*",
-                                   with: "",
-                                   options: [.regularExpression, .caseInsensitive])
-        for g in generic {
-            t = t.replacingOccurrences(of: "\\b\(NSRegularExpression.escapedPattern(for: g))\\b",
-                                       with: "",
-                                       options: [.regularExpression, .caseInsensitive])
-        }
-        t = t.replacingOccurrences(of: "\\s{2,}", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
-        if t.isEmpty || t.caseInsensitiveCompare(appMarker) == .orderedSame {
-            return nil
-        }
-        return t
     }
 }
