@@ -2,53 +2,99 @@
   {
     "id": "openai",
     "name": "OpenAI",
-    "kind": ["llm", "stt", "embeddings"],
+    "kind": ["llm", "stt", "embeddings", "vision"],
     "endpoint": "https://api.openai.com",
     "apiKeyEnv": "OPENAI_API_KEY",
     "models": {
       "chat": ["gpt-4o", "gpt-4o-mini", "gpt-4.1-mini"],
       "stt": ["whisper-1"],
-      "embeddings": ["text-embedding-3-small", "text-embedding-3-large"]
+      "embeddings": ["text-embedding-3-small", "text-embedding-3-large"],
+      "vision": ["gpt-4o", "gpt-4o-mini"]
     },
     "extras": {}
   },
   {
     "id": "azure-openai",
     "name": "Azure OpenAI",
-    "kind": ["llm", "embeddings"],
+    "kind": ["llm", "embeddings", "vision"],
     "endpoint": "https://{your-resource}.openai.azure.com",
     "apiKeyEnv": "AZURE_OPENAI_API_KEY",
     "models": {
       "chat": ["deployment:gpt-4o", "deployment:gpt-4o-mini"],
       "stt": [],
-      "embeddings": ["deployment:text-embedding-3-small"]
+      "embeddings": ["deployment:text-embedding-3-small"],
+      "vision": ["deployment:gpt-4o", "deployment:gpt-4o-mini"]
     },
     "extras": { "apiVersion": "2024-06-01", "deploymentChat": "gpt-4o", "deploymentEmb": "text-embedding-3-small" }
   },
   {
     "id": "anthropic",
     "name": "Anthropic",
-    "kind": ["llm"],
+    "kind": ["llm", "vision"],
     "endpoint": "https://api.anthropic.com",
     "apiKeyEnv": "ANTHROPIC_API_KEY",
     "models": {
-      "chat": ["claude-3-5-sonnet-20240620", "claude-3-5-haiku-20241022"],
+      "chat": ["claude-sonnet-4-20250514", "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
       "stt": [],
-      "embeddings": []
+      "embeddings": [],
+      "vision": ["claude-sonnet-4-20250514", "claude-3-5-sonnet-20241022"]
     },
     "extras": {}
   },
   {
     "id": "google",
     "name": "Google",
-    "kind": ["llm", "stt", "embeddings"],
+    "kind": ["llm", "stt", "embeddings", "vision"],
     "endpoint": "https://generativelanguage.googleapis.com",
     "apiKeyEnv": "GOOGLE_API_KEY",
     "models": {
-      "chat": ["gemini-1.5-flash", "gemini-1.5-pro"],
+      "chat": ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
       "stt": ["speech-to-text"],
-      "embeddings": ["text-embedding-004"]
+      "embeddings": ["text-embedding-004"],
+      "vision": ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
     },
     "extras": {}
+  },
+  {
+    "id": "local-qwen-vl",
+    "name": "Qwen-VL (Local)",
+    "kind": ["vision"],
+    "endpoint": "http://127.0.0.1:8080",
+    "apiKeyEnv": "",
+    "models": {
+      "chat": [],
+      "stt": [],
+      "embeddings": [],
+      "vision": ["qwen-vl-7b", "qwen-vl-72b", "qwen2-vl-7b"]
+    },
+    "extras": { "device": "auto" }
+  },
+  {
+    "id": "local-llava",
+    "name": "LLaVA (Local)",
+    "kind": ["vision"],
+    "endpoint": "http://127.0.0.1:8080",
+    "apiKeyEnv": "",
+    "models": {
+      "chat": [],
+      "stt": [],
+      "embeddings": [],
+      "vision": ["llava-1.6-34b", "llava-1.6-7b", "llava-v1.5-13b"]
+    },
+    "extras": { "device": "auto" }
+  },
+  {
+    "id": "local-minicpm",
+    "name": "MiniCPM-V (Local)",
+    "kind": ["vision"],
+    "endpoint": "http://127.0.0.1:8080",
+    "apiKeyEnv": "",
+    "models": {
+      "chat": [],
+      "stt": [],
+      "embeddings": [],
+      "vision": ["minicpm-v-2.6", "minicpm-v-2.5"]
+    },
+    "extras": { "device": "auto" }
   }
 ]
