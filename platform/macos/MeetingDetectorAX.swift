@@ -9,6 +9,7 @@ import Foundation
 import AppKit
 import CoreGraphics
 import AVFoundation
+import ScreenCaptureKit
 
 public final class MeetingDetectorAX {
     public struct Detection {
@@ -38,6 +39,9 @@ public final class MeetingDetectorAX {
     // Track window counts per app to detect when new windows appear (meeting started)
     private var baselineWindowCounts: [String: Int] = [:]
     private var hasEstablishedBaseline = false
+    
+    // Cache of window titles from ScreenCaptureKit (which has better permission handling)
+    private var windowTitles: [CGWindowID: String] = [:]
 
     public func configure(_ cfg: Config) {
         self.config = cfg
@@ -63,11 +67,9 @@ public final class MeetingDetectorAX {
             guard let self = self else { return }
             let detections = self.scan()
             let strong = detections.filter { $0.confidence >= self.config.minConfidence }
-            // Emit only when there are new windows detected
-            let keys = Set(strong.map { "\($0.app.rawValue):\($0.processId):\($0.windowId)" })
-            let isNew = keys.subtracting(self.lastHits)
-            self.lastHits = keys
-            if !strong.isEmpty && !isNew.isEmpty {
+            // Emit detections - let coordinator handle deduplication
+            if !strong.isEmpty {
+                self.log("Callback: emitting \(strong.count) detection(s)")
                 onDetected(strong)
             }
         }
@@ -81,6 +83,37 @@ public final class MeetingDetectorAX {
         lastHits.removeAll()
         baselineWindowCounts.removeAll()
         hasEstablishedBaseline = false
+        windowTitles.removeAll()
+    }
+    
+    // Track if we have permission to avoid repeated prompts
+    private var hasScreenCapturePermission: Bool?
+    private var lastTitleRefresh: Date = .distantPast
+    
+    /// Refresh window titles using ScreenCaptureKit (better permission handling)
+    private func refreshWindowTitles() async {
+        // Don't refresh more than once per second
+        guard Date().timeIntervalSince(lastTitleRefresh) > 1.0 else { return }
+        
+        // If we already know we don't have permission, don't keep trying
+        if hasScreenCapturePermission == false { return }
+        
+        lastTitleRefresh = Date()
+        
+        do {
+            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            hasScreenCapturePermission = true
+            var newTitles: [CGWindowID: String] = [:]
+            for window in content.windows {
+                if let title = window.title, !title.isEmpty {
+                    newTitles[window.windowID] = title
+                }
+            }
+            windowTitles = newTitles
+        } catch {
+            hasScreenCapturePermission = false
+            log("SCShareableContent error: \(error.localizedDescription)")
+        }
     }
     
     private static let logFile: URL = {
@@ -106,12 +139,19 @@ public final class MeetingDetectorAX {
     }
     
     private func establishBaseline() {
+        // First, refresh window titles via ScreenCaptureKit
+        Task {
+            await refreshWindowTitles()
+        }
+        
         let windows = getWindowsByApp()
         for (app, wins) in windows {
             baselineWindowCounts[app] = wins.count
             log("Baseline: \(app) = \(wins.count) windows")
-            for (_, bounds) in wins {
-                log("  - \(Int(bounds.width))x\(Int(bounds.height))")
+            for (info, bounds) in wins {
+                let wid = (info[kCGWindowNumber as String] as? NSNumber).map { CGWindowID(truncating: $0) } ?? 0
+                let title = windowTitles[wid] ?? (info[kCGWindowName as String] as? String ?? "")
+                log("  - \(Int(bounds.width))x\(Int(bounds.height)) title=\"\(title.prefix(40))\"")
             }
         }
         hasEstablishedBaseline = true
@@ -152,6 +192,11 @@ public final class MeetingDetectorAX {
     private func scan() -> [Detection] {
         guard hasEstablishedBaseline else { return [] }
         
+        // Refresh window titles using ScreenCaptureKit (async but we fire and forget)
+        Task {
+            await refreshWindowTitles()
+        }
+        
         let windowsByApp = getWindowsByApp()
         var hits: [Detection] = []
         
@@ -176,7 +221,11 @@ public final class MeetingDetectorAX {
             let currentCount = windows.count
             let hasNewWindows = currentCount > baseline
             
-            log("Checking \(appName): \(currentCount) windows (baseline: \(baseline), new: \(hasNewWindows))")
+            log("Checking \(appName): \(currentCount) windows")
+            
+            // Find the largest window (main app window) to compare against
+            let largestWindow = windows.max { $0.bounds.width * $0.bounds.height < $1.bounds.width * $1.bounds.height }
+            let largestArea = (largestWindow?.bounds.width ?? 0) * (largestWindow?.bounds.height ?? 0)
             
             // Analyze windows for meeting indicators
             for (info, bounds) in windows {
@@ -184,32 +233,57 @@ public final class MeetingDetectorAX {
                       let windowIdNum = info[kCGWindowNumber as String] as? NSNumber else { continue }
                 
                 let windowId = CGWindowID(truncating: windowIdNum)
-                let windowTitle = info[kCGWindowName as String] as? String ?? ""
+                // Try ScreenCaptureKit title first (more reliable), fall back to CGWindow title
+                let windowTitle = windowTitles[windowId] ?? (info[kCGWindowName as String] as? String ?? "")
                 let windowLayer = info[kCGWindowLayer as String] as? Int ?? 0
                 
                 // Calculate confidence based on multiple factors
-                var confidence: Double = 0.2
+                var confidence: Double = 0.1
                 var phase = "unknown"
                 
-                // Check if this app is frontmost (active)
-                let frontApp = NSWorkspace.shared.frontmostApplication
-                let isFrontmost = frontApp?.localizedName == appName
+                let titleLower = windowTitle.lowercased()
                 
-                // Factor 1: New window appeared compared to baseline - STRONG signal
-                if hasNewWindows {
+                // GEOMETRY-BASED DETECTION (works without Screen Recording permission)
+                // Teams pre-join/call windows are typically a secondary smaller window
+                let windowArea = bounds.width * bounds.height
+                let isSecondaryWindow = largestArea > 0 && windowArea < largestArea * 0.9 && windowArea > 200000
+                let isTypicalMeetingSize = bounds.width >= 800 && bounds.width <= 1600 && bounds.height >= 500 && bounds.height <= 1200
+                
+                if app == .teams && isSecondaryWindow && isTypicalMeetingSize && windows.count >= 2 {
+                    // Teams has a secondary window in typical meeting size range - likely pre-join or call
                     confidence += 0.5
-                    phase = "in_call"
-                    log("\(appName): NEW window detected! baseline=\(baseline), current=\(currentCount)")
+                    phase = "prejoin"
+                    log("\(appName): SECONDARY WINDOW detected (geometry-based) - likely meeting/prejoin")
                 }
                 
-                // Factor 2: Multiple windows AND frontmost app - likely in meeting
-                if currentCount >= 2 && isFrontmost {
-                    confidence += 0.35
-                    phase = "in_call"
-                    log("\(appName): Frontmost with \(currentCount) windows - likely in meeting")
+                // MOST IMPORTANT: Window has a meeting-related title
+                // Normal Teams windows have EMPTY titles, meeting windows have descriptive titles
+                let meetingTitleKeywords = [
+                    // English
+                    "meeting", "call", "teams meeting",
+                    // Spanish  
+                    "reunión", "llamada", "reunión de teams",
+                    // French
+                    "réunion", "appel",
+                    // German
+                    "besprechung", "anruf",
+                    // Portuguese
+                    "reunião", "chamada",
+                    // Italian
+                    "riunione", "chiamata",
+                    // Generic patterns
+                    "microsoft teams"
+                ]
+                
+                let hasMeetingTitle = !titleLower.isEmpty && meetingTitleKeywords.contains { titleLower.contains($0) }
+                
+                if hasMeetingTitle {
+                    confidence += 0.7  // Strong signal - this IS a meeting window
+                    phase = "prejoin"
+                    log("\(appName): MEETING WINDOW detected! Title: \(windowTitle)")
                 }
                 
-                // Factor 3: Window size typical of meeting (reasonably large)
+                // Factor 2: Window size typical of meeting (reasonably large)
                 let aspectRatio = bounds.width / bounds.height
                 let isMeetingSize = bounds.width >= 600 && bounds.height >= 400
                 let hasVideoAspect = aspectRatio >= 1.0 && aspectRatio <= 2.5
@@ -217,63 +291,38 @@ public final class MeetingDetectorAX {
                     confidence += 0.15
                 }
                 
-                // Factor 4: Window layer (floating windows often indicate active call UI)
+                // Factor 3: Window layer (floating windows often indicate active call UI)
                 if windowLayer > 0 {
                     confidence += 0.1
                 }
                 
-                // Factor 5: Has multiple large windows (even if not frontmost)
-                if currentCount >= 2 {
-                    confidence += 0.1
-                }
-                
-                // Factor 5: Title-based detection (if title exists)
-                let titleLower = windowTitle.lowercased()
-                
+                // Additional title-based signals
                 if !titleLower.isEmpty {
-                    // Check for participant count pattern: "· 2" or "(3)" etc
+                    // Check for participant count pattern: "· 2" or "(3)" etc - indicates active call
                     let hasParticipantCount = titleLower.range(of: "[·•\\(]\\s*\\d+", options: .regularExpression) != nil
                     if hasParticipantCount {
-                        confidence += 0.3
+                        confidence += 0.2
                         phase = "in_call"
+                        log("\(appName): Participant count detected in title")
                     }
                     
-                    // Check for duration pattern: "00:00" or "1:23:45"
+                    // Check for duration pattern: "00:00" or "1:23:45" - indicates active call
                     let hasDuration = titleLower.range(of: "\\d{1,2}:\\d{2}", options: .regularExpression) != nil
                     if hasDuration {
-                        confidence += 0.25
+                        confidence += 0.2
                         phase = "in_call"
+                        log("\(appName): Duration timer detected in title")
                     }
                     
-                    // Common meeting keywords (multi-language)
-                    let meetingKeywords = ["meeting", "call", "reunión", "llamada", "réunion", "appel", 
-                                           "besprechung", "anruf", "会议", "通话", "ミーティング", "通話",
-                                           "in a call", "in call", "presenting", "screen share"]
-                    for keyword in meetingKeywords {
-                        if titleLower.contains(keyword) {
-                            confidence += 0.2
-                            if keyword.contains("present") || keyword.contains("share") {
-                                phase = "presenting"
-                            } else {
-                                phase = "in_call"
-                            }
-                            break
-                        }
-                    }
-                    
-                    // Pre-join keywords (multi-language)
-                    let prejoinKeywords = ["join", "unirse", "rejoindre", "beitreten", "参加", "参加する",
-                                           "preview", "vista previa", "aperçu", "vorschau"]
-                    for keyword in prejoinKeywords {
-                        if titleLower.contains(keyword) {
-                            phase = "prejoin"
-                            confidence += 0.1
-                            break
-                        }
+                    // Screen sharing indicators
+                    if titleLower.contains("presenting") || titleLower.contains("screen share") || 
+                       titleLower.contains("compartiendo") || titleLower.contains("partage") {
+                        phase = "presenting"
+                        confidence += 0.1
                     }
                 }
                 
-                log("\(appName) window: \(Int(bounds.width))x\(Int(bounds.height)), conf=\(String(format: "%.2f", confidence)), phase=\(phase)")
+                log("\(appName) window: \(Int(bounds.width))x\(Int(bounds.height)), title=\"\(windowTitle.prefix(50))\", conf=\(String(format: "%.2f", confidence)), phase=\(phase)")
                 
                 // Only add if we have some confidence
                 if confidence >= 0.5 {
@@ -289,6 +338,7 @@ public final class MeetingDetectorAX {
                     )
                     hits.append(detection)
                     log("✓ DETECTION: \(app.rawValue) conf=\(String(format: "%.2f", confidence)) phase=\(phase)")
+                    log("  → Calling callback with \(hits.count) detection(s)")
                 }
             }
         }

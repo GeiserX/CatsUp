@@ -45,12 +45,30 @@ public final class VideoCaptureSK: NSObject {
 
     public func start(windowId: CGWindowID,
                       onFrame: @escaping (CVPixelBuffer, CMTime) -> Void) async throws {
-        guard !isRunning else { return }
-        // Fetch shareable content
-        let content = try await SCShareableContent.current
+        guard !isRunning else { 
+            NSLog("[VideoCaptureSK] Already running, ignoring start")
+            return 
+        }
+        
+        NSLog("[VideoCaptureSK] Starting capture for window %d", windowId)
+        
+        // Fetch shareable content - this will fail if screen recording permission not granted
+        let content: SCShareableContent
+        do {
+            content = try await SCShareableContent.current
+            NSLog("[VideoCaptureSK] Got shareable content: %d windows, %d displays", content.windows.count, content.displays.count)
+        } catch {
+            NSLog("[VideoCaptureSK] ERROR getting shareable content (permission denied?): %@", error.localizedDescription)
+            throw error
+        }
+        
         guard let scWindow = content.windows.first(where: { $0.windowID == windowId }) else {
+            NSLog("[VideoCaptureSK] ERROR: Window %d not found in shareable content. Available IDs: %@", 
+                  windowId, content.windows.prefix(20).map { String($0.windowID) }.joined(separator: ", "))
             throw NSError(domain: "VideoCaptureSK", code: 1, userInfo: [NSLocalizedDescriptionKey: "Window not found in shareable content"])
         }
+        
+        NSLog("[VideoCaptureSK] Found window: %@ (app: %@)", scWindow.title ?? "untitled", scWindow.owningApplication?.applicationName ?? "unknown")
 
         // Build content filter for a single window (desktop-independent)
         let filter = SCContentFilter(desktopIndependentWindow: scWindow)
@@ -75,7 +93,14 @@ public final class VideoCaptureSK: NSObject {
         self.videoOutput = videoOut
         try stream.addStreamOutput(videoOut, type: .screen, sampleHandlerQueue: .main)
 
-        try await stream.startCapture()
+        NSLog("[VideoCaptureSK] Starting capture stream...")
+        do {
+            try await stream.startCapture()
+            NSLog("[VideoCaptureSK] Capture started successfully!")
+        } catch {
+            NSLog("[VideoCaptureSK] ERROR starting capture: %@", error.localizedDescription)
+            throw error
+        }
         isRunning = true
     }
 
@@ -95,7 +120,7 @@ public final class VideoCaptureSK: NSObject {
 
 extension VideoCaptureSK: SCStreamDelegate {
     public func stream(_ stream: SCStream, didStopWithError error: Error) {
-        // You can forward this error to your app’s event bus.
-        // print("VideoCaptureSK stream stopped with error: \(error.localizedDescription)")
+        NSLog("[VideoCaptureSK] Stream stopped with error: %@", error.localizedDescription)
+        isRunning = false
     }
 }
