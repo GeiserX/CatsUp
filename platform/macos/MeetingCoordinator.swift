@@ -117,6 +117,7 @@ public final class MeetingCoordinator: ObservableObject {
         guard state == .idle else { return }
         
         state = .detecting
+        hasShownNotificationForCurrentMeeting = false
         
         var detectorConfig = MeetingDetectorAX.Config()
         detectorConfig.pollIntervalMs = 1000
@@ -124,8 +125,6 @@ public final class MeetingCoordinator: ObservableObject {
         detector.configure(detectorConfig)
         detector.start { [weak self] detections in
             guard let self, let best = detections.max(by: { $0.confidence < $1.confidence }) else { return }
-            
-            print("[CatsUp] Meeting detected: \(best.app.rawValue) - \(best.processName) - conf: \(best.confidence) - phase: \(best.phase) - title: \(best.windowTitle)")
             
             Task { @MainActor in
                 self.handleMeetingDetected(best)
@@ -155,14 +154,22 @@ public final class MeetingCoordinator: ObservableObject {
     
     /// Manual recording - finds the largest Teams/Zoom/Slack window and starts recording
     public func startRecordingManually() {
-        guard !isRecording else { return }
+        NSLog("[CatsUp] startRecordingManually called")
+        
+        guard !isRecording else {
+            NSLog("[CatsUp] Already recording, ignoring")
+            return
+        }
         
         // Find best meeting window
         let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
         guard let infoList = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else {
+            NSLog("[CatsUp] ERROR: Cannot access windows list")
             state = .error("Cannot access windows")
             return
         }
+        
+        NSLog("[CatsUp] Found %d windows total", infoList.count)
         
         var bestWindow: (windowId: CGWindowID, appName: String, area: CGFloat)? = nil
         
@@ -176,6 +183,10 @@ public final class MeetingCoordinator: ObservableObject {
             let nameLower = ownerName.lowercased()
             let isMeetingApp = nameLower.contains("teams") || nameLower.contains("zoom") || nameLower.contains("slack")
             
+            if isMeetingApp {
+                NSLog("[CatsUp] Found meeting app window: %@ (%dx%d)", ownerName, Int(width), Int(height))
+            }
+            
             guard isMeetingApp && width >= 400 && height >= 300 else { continue }
             
             let area = width * height
@@ -185,9 +196,12 @@ public final class MeetingCoordinator: ObservableObject {
         }
         
         guard let window = bestWindow else {
+            NSLog("[CatsUp] ERROR: No Teams, Zoom, or Slack window found!")
             state = .error("No Teams, Zoom, or Slack window found")
             return
         }
+        
+        NSLog("[CatsUp] Selected window: %@ (id=%d)", window.appName, window.windowId)
         
         currentWindowId = window.windowId
         currentMeeting = MeetingInfo(
@@ -263,10 +277,34 @@ public final class MeetingCoordinator: ObservableObject {
     
     // MARK: - Private Methods
     
+    // Track if we've shown notification for current meeting
+    private var hasShownNotificationForCurrentMeeting = false
+    
+    // File logging for debugging
+    private func logToFile(_ message: String) {
+        let logFile = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/catsup_coordinator.log")
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let line = "[\(timestamp)] \(message)\n"
+        if FileManager.default.fileExists(atPath: logFile.path) {
+            if let handle = try? FileHandle(forWritingTo: logFile) {
+                handle.seekToEndOfFile()
+                handle.write(line.data(using: .utf8)!)
+                handle.closeFile()
+            }
+        } else {
+            try? line.write(to: logFile, atomically: true, encoding: .utf8)
+        }
+    }
+    
     private func handleMeetingDetected(_ detection: MeetingDetectorAX.Detection) {
-        // Allow updates when detecting OR when waiting for call to start
-        guard state == .detecting || 
-              (state == .meetingDetected(app: detection.app.rawValue) && detection.phase == "in_call") else { 
+        logToFile("handleMeetingDetected called - state=\(state), hasShown=\(hasShownNotificationForCurrentMeeting)")
+        NSLog("[CatsUp] handleMeetingDetected called - state=%@, hasShown=%d", String(describing: state), hasShownNotificationForCurrentMeeting)
+        
+        // Only process if we're in detecting state
+        guard state == .detecting else { 
+            logToFile("Ignoring detection - not in detecting state (state=\(state))")
+            NSLog("[CatsUp] Ignoring detection - not in detecting state")
             return 
         }
         
@@ -277,32 +315,49 @@ public final class MeetingCoordinator: ObservableObject {
             startTime: Date()
         )
         
-        // If pre-join, just show detected state but don't record yet
-        if detection.phase == "prejoin" || detection.phase == "lobby" {
-            print("[CatsUp] Pre-join detected, waiting for call to start...")
-            state = .meetingDetected(app: detection.app.rawValue)
-            // Keep detecting until in_call
-            return
+        state = .meetingDetected(app: detection.app.rawValue)
+        
+        // Show floating notification popup ONLY ONCE per meeting
+        if !hasShownNotificationForCurrentMeeting {
+            hasShownNotificationForCurrentMeeting = true
+            logToFile("Showing notification panel for \(detection.app.rawValue) phase=\(detection.phase)")
+            NSLog("[CatsUp] Showing notification panel for %@ phase=%@", detection.app.rawValue, detection.phase)
+            
+            MeetingNotificationPanel.shared.show(
+                appName: detection.app.rawValue.capitalized,
+                meetingTitle: detection.meetingTitle ?? detection.windowTitle,
+                onRecord: { [weak self] in
+                    NSLog("[CatsUp] User clicked Record")
+                    self?.startRecording()
+                },
+                onDismiss: { [weak self] in
+                    NSLog("[CatsUp] User clicked Dismiss")
+                    // Reset so next meeting will show notification
+                    self?.hasShownNotificationForCurrentMeeting = false
+                    self?.state = .detecting
+                }
+            )
+        } else {
+            NSLog("[CatsUp] Not showing notification - already shown")
         }
         
-        // Only record when actually in call
-        if detection.phase == "in_call" || detection.phase == "presenting" {
-            print("[CatsUp] In-call detected, starting recording...")
-            state = .meetingDetected(app: detection.app.rawValue)
-            
-            if config.autoStartRecording && !isRecording {
+        // If auto-record is enabled and we're in the actual call, start recording
+        if config.autoStartRecording && !isRecording {
+            if detection.phase == "in_call" || detection.phase == "presenting" {
+                NSLog("[CatsUp] Auto-recording enabled, starting...")
                 startRecording()
-            } else if !config.autoStartRecording {
-                showMeetingDetectedNotification(detection)
             }
         }
     }
     
     private func startRecordingAsync(windowId: CGWindowID) async {
+        NSLog("[CatsUp] startRecordingAsync called for window %d", windowId)
+        
         do {
             // Ensure recordings directory exists
             if let dir = config.recordingsDirectory {
                 try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                NSLog("[CatsUp] Recordings directory: %@", dir.path)
             }
             
             // Generate recording filename
@@ -315,6 +370,8 @@ public final class MeetingCoordinator: ObservableObject {
             let outputURL = config.recordingsDirectory?.appendingPathComponent(fileName)
                 ?? FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
             
+            NSLog("[CatsUp] Will save recording to: %@", outputURL.path)
+            
             currentMeeting?.recordingURL = outputURL
             
             // Start recorder
@@ -325,12 +382,16 @@ public final class MeetingCoordinator: ObservableObject {
             options.captureAppAudio = true
             options.captureMic = true
             
+            NSLog("[CatsUp] Starting RecorderSK...")
+            
             try await rec.start(windowId: windowId, options: options) { [weak self] recState in
                 Task { @MainActor in
+                    NSLog("[CatsUp] Recorder state changed: %@", String(describing: recState))
                     if case .recording = recState {
                         self?.isRecording = true
                         self?.state = .recording
                         self?.startElapsedTimer()
+                        NSLog("[CatsUp] Recording started successfully!")
                     }
                 }
             }
@@ -341,6 +402,7 @@ public final class MeetingCoordinator: ObservableObject {
             meetingStartTime = Date()
             
         } catch {
+            NSLog("[CatsUp] ERROR starting recording: %@", error.localizedDescription)
             state = .error("Failed to start recording: \(error.localizedDescription)")
         }
     }

@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		F10001 /* TrayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10002 /* TrayApp.swift */; };
 		F10003 /* MeetingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10004 /* MeetingCoordinator.swift */; };
+		ZSWJJJ5SRA9NBZ3XF29VPVDY /* MeetingNotificationPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 908K6OMKL09AIA834RGS6A5R /* MeetingNotificationPanel.swift */; };
+
 		F10005 /* TranscriptionStreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10006 /* TranscriptionStreamService.swift */; };
 		F10007 /* ResponseEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10008 /* ResponseEngine.swift */; };
 		F10009 /* MiniWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10010 /* MiniWindowView.swift */; };
@@ -27,6 +29,8 @@
 		F10000 /* CatsUp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CatsUp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F10002 /* TrayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrayApp.swift; sourceTree = "<group>"; };
 		F10004 /* MeetingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingCoordinator.swift; sourceTree = "<group>"; };
+		908K6OMKL09AIA834RGS6A5R /* MeetingNotificationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingNotificationPanel.swift; sourceTree = "<group>"; };
+
 		F10006 /* TranscriptionStreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionStreamService.swift; sourceTree = "<group>"; };
 		F10008 /* ResponseEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponseEngine.swift; sourceTree = "<group>"; };
 		F10010 /* MiniWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniWindowView.swift; sourceTree = "<group>"; };
@@ -78,6 +82,7 @@
 			children = (
 				F10002 /* TrayApp.swift */,
 				F10004 /* MeetingCoordinator.swift */,
+				908K6OMKL09AIA834RGS6A5R /* MeetingNotificationPanel.swift */,
 				F10006 /* TranscriptionStreamService.swift */,
 				F10008 /* ResponseEngine.swift */,
 				F10010 /* MiniWindowView.swift */,
@@ -164,6 +169,7 @@
 			files = (
 				F10001 /* TrayApp.swift in Sources */,
 				F10003 /* MeetingCoordinator.swift in Sources */,
+				ZSWJJJ5SRA9NBZ3XF29VPVDY /* MeetingNotificationPanel.swift in Sources */,
 				F10005 /* TranscriptionStreamService.swift in Sources */,
 				F10007 /* ResponseEngine.swift in Sources */,
 				F10009 /* MiniWindowView.swift in Sources */,
