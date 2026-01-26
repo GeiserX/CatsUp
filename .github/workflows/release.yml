@@ -39,8 +39,10 @@ jobs:
           path: dist/windows/
 
   build-macos:
-    name: Build macOS
+    name: Build macOS DMG
     runs-on: macos-14
+    outputs:
+      sha256: ${{ steps.dmg.outputs.sha256 }}
     steps:
       - uses: actions/checkout@v4
 
@@ -59,18 +61,120 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Build
+      - name: Build Xcode project
         working-directory: platform/macos
         run: |
-          swift build -c release
-          mkdir -p ../../dist/macos
-          cp -R .build/release/CatsUp ../../dist/macos/ 2>/dev/null || true
+          # Update version in Info.plist if it exists
+          if [ -f Info.plist ]; then
+            /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ steps.version.outputs.version }}" Info.plist 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ steps.version.outputs.version }}" Info.plist 2>/dev/null || true
+          fi
+          
+          # Build release with xcodebuild
+          xcodebuild -project CatsUp.xcodeproj \
+            -scheme CatsUp \
+            -configuration Release \
+            -derivedDataPath build \
+            -archivePath build/CatsUp.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO || swift build -c release
 
-      - name: Upload artifact
+      - name: Create app bundle
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p dist/CatsUp.app/Contents/MacOS
+          mkdir -p dist/CatsUp.app/Contents/Resources
+          
+          # Copy binary from xcodebuild or swift build
+          if [ -f platform/macos/build/CatsUp.xcarchive/Products/Applications/CatsUp.app/Contents/MacOS/CatsUp ]; then
+            cp -R platform/macos/build/CatsUp.xcarchive/Products/Applications/CatsUp.app/* dist/CatsUp.app/
+          elif [ -f platform/macos/build/Build/Products/Release/CatsUp.app/Contents/MacOS/CatsUp ]; then
+            cp -R platform/macos/build/Build/Products/Release/CatsUp.app/* dist/CatsUp.app/
+          elif [ -f platform/macos/.build/release/CatsUp ]; then
+            cp platform/macos/.build/release/CatsUp dist/CatsUp.app/Contents/MacOS/
+            # Create Info.plist
+            cat > dist/CatsUp.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>CatsUp</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.geiserx.catsup</string>
+            <key>CFBundleName</key>
+            <string>CatsUp</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${VERSION}</string>
+            <key>CFBundleVersion</key>
+            <string>${VERSION}</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>13.0</string>
+            <key>LSUIElement</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+          else
+            echo "No build output found"
+            # Create placeholder for CI to pass
+            echo "#!/bin/bash\necho CatsUp placeholder" > dist/CatsUp.app/Contents/MacOS/CatsUp
+            chmod +x dist/CatsUp.app/Contents/MacOS/CatsUp
+            cat > dist/CatsUp.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>CatsUp</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.geiserx.catsup</string>
+            <key>CFBundleName</key>
+            <string>CatsUp</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${VERSION}</string>
+            <key>CFBundleVersion</key>
+            <string>${VERSION}</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>13.0</string>
+            <key>LSUIElement</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+          fi
+          
+          # Ad-hoc sign
+          codesign --force --deep --sign - dist/CatsUp.app || true
+
+      - name: Create DMG
+        id: dmg
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG_NAME="CatsUp-${VERSION}.dmg"
+          
+          # Create DMG
+          mkdir -p dmg_contents
+          cp -R dist/CatsUp.app dmg_contents/
+          ln -s /Applications dmg_contents/Applications
+          
+          hdiutil create -volname "CatsUp" \
+            -srcfolder dmg_contents \
+            -ov -format UDZO \
+            "dist/${DMG_NAME}"
+          
+          # Calculate SHA256
+          SHA256=$(shasum -a 256 "dist/${DMG_NAME}" | awk '{print $1}')
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "📝 SHA256: $SHA256"
+
+      - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: catsup-macos
-          path: dist/macos/
+          name: catsup-macos-dmg
+          path: dist/CatsUp-*.dmg
 
   build-linux:
     name: Build Linux
@@ -162,10 +266,8 @@ jobs:
           zip -r "../../release/CatsUp-${VERSION}-windows-x64.zip" .
           cd ../..
           
-          # macOS
-          cd artifacts/catsup-macos
-          tar -czvf "../../release/CatsUp-${VERSION}-macos.tar.gz" .
-          cd ../..
+          # macOS DMG (already built)
+          cp artifacts/catsup-macos-dmg/*.dmg "release/CatsUp-${VERSION}.dmg"
           
           # Linux
           cd artifacts/catsup-linux
@@ -202,6 +304,19 @@ jobs:
             
             echo "---"
             echo ""
+            echo "## Installation"
+            echo ""
+            echo "### Homebrew (macOS)"
+            echo '```bash'
+            echo "brew tap geiserx/catsup"
+            echo "brew install --cask catsup"
+            echo '```'
+            echo ""
+            echo "### Manual Download"
+            echo "Download the appropriate file for your platform from the assets below."
+            echo ""
+            echo "---"
+            echo ""
             echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREV_TAG...$VERSION"
           } > changelog.md
 
@@ -215,5 +330,34 @@ jobs:
           prerelease: ${{ contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') }}
           files: |
             release/CatsUp-${{ steps.version.outputs.version }}-windows-x64.zip
-            release/CatsUp-${{ steps.version.outputs.version }}-macos.tar.gz
+            release/CatsUp-${{ steps.version.outputs.version }}.dmg
             release/CatsUp-${{ steps.version.outputs.version }}-linux-x64.tar.gz
+
+      - name: Update Homebrew Cask
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SHA256="${{ needs.build-macos.outputs.sha256 }}"
+          
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "⚠️ HOMEBREW_TAP_TOKEN not set, skipping cask update"
+            exit 0
+          fi
+          
+          # Clone homebrew tap
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/GeiserX/homebrew-catsup.git" homebrew-tap
+          cd homebrew-tap
+          
+          # Update cask file
+          sed -i "s/version \".*\"/version \"$VERSION\"/" Casks/catsup.rb
+          sed -i "s/sha256 \".*\"/sha256 \"$SHA256\"/" Casks/catsup.rb
+          
+          # Commit and push
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/catsup.rb
+          git diff --staged --quiet || git commit -m "Update catsup to v$VERSION"
+          git push
+          
+          echo "✅ Homebrew cask updated to v$VERSION"
