@@ -31,13 +31,31 @@
 - **Live Mini Window** — Floating overlay with transcript, AI responses, quick actions
 - **Private Options** — Use cloud APIs or 100% local processing with Ollama/llama.cpp
 
-## Quick Start (macOS)
+## Installation
 
-1. **Build**: Open `platform/macos/CatsUp.xcodeproj` in Xcode, build and run
-2. **Configure**: Click menu bar icon → Settings → Add API keys
-3. **Set Trigger Word**: Add your name (e.g., "Sergio") in Trigger Words tab
-4. **Start**: Click "Start Detection" in menu bar dropdown
-5. **Join Meeting**: CatsUp auto-detects and starts recording
+### Homebrew (macOS)
+
+```bash
+brew tap geiserx/catsup
+brew install --cask catsup
+```
+
+Or install directly:
+
+```bash
+brew install --cask geiserx/catsup/catsup
+```
+
+### Manual Download
+
+Download the latest release from the [Releases page](https://github.com/GeiserX/CatsUp/releases).
+
+## Quick Start
+
+1. **Configure**: Click menu bar icon → Settings → Add API keys
+2. **Set Trigger Word**: Add your name (e.g., "Sergio") in Trigger Words tab
+3. **Start**: Click "Start Detection" in menu bar dropdown
+4. **Join Meeting**: CatsUp auto-detects and starts recording
 
 ## Architecture
 
