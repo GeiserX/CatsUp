@@ -5,7 +5,7 @@ import providers from '../providers.json' assert { type: 'json' };
 
 export type Provider = {
   id: string;
-  kind: Array<'llm' | 'stt' | 'embeddings'>;
+  kind: Array<'llm' | 'stt' | 'embeddings' | 'vision'>;
   name: string;
   endpoint?: string;
   apiKeyEnv?: string;
@@ -13,6 +13,7 @@ export type Provider = {
     chat?: string[];         // LLM chat models
     stt?: string[];          // speech-to-text models
     embeddings?: string[];   // embedding models
+    vision?: string[];       // vision/multimodal models
   };
   extras?: Record<string, any>; // e.g., apiVersion, deployment for Azure, region, etc.
 };

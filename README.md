@@ -51,7 +51,7 @@ CatsUp is built with a decoupled architecture to ensure cross-platform compatibi
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/yourusername/CatsUp.git
+   git clone https://github.com/GeiserX/CatsUp.git
    cd CatsUp
    ```
 
@@ -96,4 +96,4 @@ Contributions are welcome! Please check out the `development` branch and read ou
 
 ## 📄 License
 
-MIT License
+This project is licensed under the **GNU General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
