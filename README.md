@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/catsup-logo.svg" alt="CatsUp Logo" width="180" height="180">
+  <img src="assets/catsup-logo.png" alt="CatsUp Logo" width="280">
 </p>
 
 <h1 align="center">CatsUp</h1>
