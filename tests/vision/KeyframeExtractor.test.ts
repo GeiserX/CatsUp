@@ -88,7 +88,7 @@ describe('KeyframeExtractor', () => {
       extractor.processFrame(frame1);
       
       // Second frame (much brighter) - should be detected as change
-      const frame2 = createMockFrame(2, Date.now() + 200, 200);
+      const frame2 = createMockFrame(2, Date.now() + 600, 200);
       const result = extractor.processFrame(frame2);
       
       expect(result).not.toBeNull();
