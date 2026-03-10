@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="assets/catsup-logo.png" alt="CatsUp Logo" width="280">
+  <img src="docs/images/banner.svg" alt="CatsUp banner" width="900"/>
+</p>
+
+<p align="center">
+  <img src="assets/catsup-logo.png" alt="CatsUp Logo" width="150">
 </p>
 
 <h1 align="center">CatsUp</h1>
