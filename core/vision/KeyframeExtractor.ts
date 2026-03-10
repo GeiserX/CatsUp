@@ -214,9 +214,9 @@ export class KeyframeExtractor {
    * Compute a change score between two frames (0 = identical, 1 = completely different).
    * Uses histogram comparison for efficiency.
    */
-  private computeChangeScore(frame1: VideoFrame, frame2: VideoFrame): number {
-    const hist1 = this.lastHistogram || this.computeHistogram(frame1);
-    const hist2 = this.computeHistogram(frame2);
+  private computeChangeScore(newFrame: VideoFrame, oldFrame: VideoFrame): number {
+    const hist1 = this.lastHistogram || this.computeHistogram(oldFrame);
+    const hist2 = this.computeHistogram(newFrame);
     
     // Histogram intersection (normalized)
     let intersection = 0;
