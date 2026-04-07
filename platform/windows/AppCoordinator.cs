@@ -79,14 +79,25 @@ namespace MeetingAssistant.Windows
 
             // AI Init
             _parakeet.Initialize("cpu");
-            _responder.Configure(true, "Sergio");
+            _responder.Configure(true, "User");
+
+            // Configure AI provider from environment variables (or config file)
+            var llmProvider = Environment.GetEnvironmentVariable("CATSUP_LLM_PROVIDER") ?? "openai";
+            var llmApiKey = llmProvider switch
+            {
+                "anthropic" => Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY") ?? "",
+                "ollama" => "ollama",
+                _ => Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? ""
+            };
+            var llmModel = Environment.GetEnvironmentVariable("CATSUP_LLM_MODEL") ?? "gpt-4o";
+            _responder.ConfigureAI(llmProvider, llmApiKey, llmModel);
         }
 
         public void StartDetection() => _detector.Start();
 
         private string RecordingsDir()
         {
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "MeetingAssistantRecordings");
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "CatsUp");
             Directory.CreateDirectory(dir);
             return dir;
         }

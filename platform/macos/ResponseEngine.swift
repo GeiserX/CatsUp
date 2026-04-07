@@ -149,7 +149,15 @@ public final class ResponseEngine {
         Answer concisely in 1-2 sentences.
         """
         
-        let response = try await callOpenAI(prompt: prompt, config: config)
+        let response: Response
+        switch config.provider {
+        case .openai:
+            response = try await callOpenAI(prompt: prompt, config: config)
+        case .anthropic:
+            response = try await callAnthropic(prompt: prompt, config: config)
+        case .ollama:
+            response = try await callOllama(prompt: prompt, config: config)
+        }
         return response.text
     }
     
@@ -303,29 +311,31 @@ public final class ResponseEngine {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         let body: [String: Any] = [
-            "model": config.model.contains("claude") ? config.model : "claude-3-5-sonnet-20240620",
+            "model": config.model.contains("claude") ? config.model : "claude-sonnet-4-5-20250514",
             "max_tokens": 500,
             "system": config.systemPrompt,
             "messages": [
                 ["role": "user", "content": prompt]
             ]
         ]
-        
+
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
+
         let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw ResponseError.apiError("Anthropic API error")
+
+        let httpResponse = response as? HTTPURLResponse
+        guard httpResponse?.statusCode == 200 else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw ResponseError.apiError("Anthropic API error (\(httpResponse?.statusCode ?? 0)): \(errorBody)")
         }
-        
+
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let content = json["content"] as? [[String: Any]],
               let first = content.first,
               let text = first["text"] as? String else {
             throw ResponseError.parseError
         }
-        
+
         return Response(
             text: text.trimmingCharacters(in: .whitespacesAndNewlines),
             confidence: 0.9,
@@ -333,18 +343,18 @@ public final class ResponseEngine {
             citations: []
         )
     }
-    
+
     private func streamAnthropic(prompt: String, config: Config, continuation: AsyncThrowingStream<String, Error>.Continuation) async throws {
         let url = URL(string: "https://api.anthropic.com/v1/messages")!
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue(config.apiKey, forHTTPHeaderField: "x-api-key")
         request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
+
         let body: [String: Any] = [
-            "model": config.model.contains("claude") ? config.model : "claude-3-5-sonnet-20240620",
+            "model": config.model.contains("claude") ? config.model : "claude-sonnet-4-5-20250514",
             "max_tokens": 500,
             "system": config.systemPrompt,
             "messages": [
@@ -352,31 +362,37 @@ public final class ResponseEngine {
             ],
             "stream": true
         ]
-        
+
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        let (bytes, response) = try await URLSession.shared.data(for: request)
-        
+
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             continuation.finish(throwing: ResponseError.apiError("Anthropic streaming error"))
             return
         }
-        
-        // Parse SSE response
-        if let text = String(data: bytes, encoding: .utf8) {
-            for line in text.split(separator: "\n") {
-                if line.hasPrefix("data: ") {
-                    let jsonString = String(line.dropFirst(6))
-                    if let data = jsonString.data(using: .utf8),
-                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let delta = json["delta"] as? [String: Any],
-                       let content = delta["text"] as? String {
-                        continuation.yield(content)
-                    }
-                }
+
+        // Parse Anthropic SSE event stream
+        for try await line in bytes.lines {
+            // Anthropic sends "event: <type>" then "data: <json>" pairs
+            // We only care about content_block_delta events
+            guard line.hasPrefix("data: ") else { continue }
+            let jsonString = String(line.dropFirst(6))
+
+            guard let data = jsonString.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+
+            let eventType = json["type"] as? String ?? ""
+
+            if eventType == "content_block_delta",
+               let delta = json["delta"] as? [String: Any],
+               let text = delta["text"] as? String {
+                continuation.yield(text)
+            } else if eventType == "message_stop" {
+                break
             }
         }
-        
+
         continuation.finish()
     }
     

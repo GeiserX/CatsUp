@@ -384,6 +384,8 @@ public final class MeetingCoordinator: ObservableObject {
             
             NSLog("[CatsUp] Starting RecorderSK...")
             
+            meetingStartTime = Date()
+
             try await rec.start(windowId: windowId, options: options) { [weak self] recState in
                 Task { @MainActor in
                     NSLog("[CatsUp] Recorder state changed: %@", String(describing: recState))
@@ -395,11 +397,9 @@ public final class MeetingCoordinator: ObservableObject {
                     }
                 }
             }
-            
+
             // Start transcription
             await startTranscription()
-            
-            meetingStartTime = Date()
             
         } catch {
             NSLog("[CatsUp] ERROR starting recording: %@", error.localizedDescription)
@@ -474,23 +474,32 @@ public final class MeetingCoordinator: ObservableObject {
         isAIResponding = true
         lastAIResponse = ""
         
-        // Configure response engine if needed
-        if !config.openaiApiKey.isEmpty {
-            var responseConfig = ResponseEngine.Config(apiKey: config.openaiApiKey)
-            responseConfig.model = config.llmModel
-            
-            switch config.llmProvider {
-            case "anthropic":
-                responseConfig.provider = .anthropic
-                responseConfig.apiKey = config.anthropicApiKey
-            case "ollama":
-                responseConfig.provider = .ollama
-            default:
-                responseConfig.provider = .openai
-            }
-            
-            responseEngine.configure(responseConfig)
+        // Configure response engine based on selected provider
+        let providerApiKey: String
+        let provider: ResponseEngine.LLMProvider
+
+        switch config.llmProvider {
+        case "anthropic":
+            providerApiKey = config.anthropicApiKey
+            provider = .anthropic
+        case "ollama":
+            providerApiKey = "ollama" // Ollama doesn't need an API key
+            provider = .ollama
+        default:
+            providerApiKey = config.openaiApiKey
+            provider = .openai
         }
+
+        guard !providerApiKey.isEmpty else {
+            lastAIResponse = "No API key configured for \(config.llmProvider)"
+            isAIResponding = false
+            return
+        }
+
+        var responseConfig = ResponseEngine.Config(apiKey: providerApiKey)
+        responseConfig.model = config.llmModel
+        responseConfig.provider = provider
+        responseEngine.configure(responseConfig)
         
         do {
             let context = ResponseEngine.ResponseContext(

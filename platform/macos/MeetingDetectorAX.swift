@@ -212,6 +212,23 @@ public final class MeetingDetectorAX {
                 app = .zoom
             } else if normalizedName.contains("slack") {
                 app = .slack
+            } else if normalizedName.contains("google chrome") || normalizedName.contains("safari") ||
+                      normalizedName.contains("firefox") || normalizedName.contains("microsoft edge") ||
+                      normalizedName.contains("arc") || normalizedName.contains("brave") {
+                // Browser — check window titles for Google Meet
+                let hasMeetWindow = windows.contains { (info, _) in
+                    let wid = (info[kCGWindowNumber as String] as? NSNumber).map { CGWindowID(truncating: $0) } ?? 0
+                    let title = windowTitles[wid] ?? (info[kCGWindowName as String] as? String ?? "")
+                    let titleLower = title.lowercased()
+                    return titleLower.contains("meet.google.com") ||
+                           titleLower.contains("google meet") ||
+                           titleLower.range(of: "[a-z]{3}-[a-z]{4}-[a-z]{3}", options: .regularExpression) != nil
+                }
+                if hasMeetWindow {
+                    app = .meet
+                } else {
+                    continue // Browser but no Meet session
+                }
             } else {
                 continue // Not a meeting app
             }
@@ -219,9 +236,7 @@ public final class MeetingDetectorAX {
             // Get baseline count for this app
             let baseline = baselineWindowCounts[appName] ?? 0
             let currentCount = windows.count
-            let hasNewWindows = currentCount > baseline
-            
-            log("Checking \(appName): \(currentCount) windows")
+            log("Checking \(appName): \(currentCount) windows (baseline: \(baseline))")
             
             // Find the largest window (main app window) to compare against
             let largestWindow = windows.max { $0.bounds.width * $0.bounds.height < $1.bounds.width * $1.bounds.height }

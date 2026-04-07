@@ -41,29 +41,45 @@ export interface AppConfig {
     vision?: VisionConfig;
 }
 
+const CONFIG_KEY = 'catsup-config';
+
+const defaultConfig: AppConfig = {
+    aiBackend: 'local',
+    shortcut: 'Ctrl+Shift+R',
+    notifications: { onDetect: 'prompt' },
+    recording: { autoStart: false },
+    parakeet: { enabled: true, device: 'cpu' },
+    smartResponse: { enabled: true, triggerWord: 'User', hotkey: 'Ctrl+Shift+H' },
+    vision: {
+        enabled: false,
+        provider: 'cloud',
+        latencyMode: 'near-realtime',
+        ocrAccuracy: 'standard',
+        samplingStrategy: 'change-based',
+        changeThreshold: 0.1,
+        cloudProvider: 'openai',
+        cloudModel: 'gpt-4o',
+        storeKeyframes: true,
+        maxKeyframesStored: 500,
+    }
+};
+
 export const loadConfig = (): AppConfig => {
-    return {
-        aiBackend: 'local',
-        shortcut: 'Ctrl+Shift+R',
-        notifications: { onDetect: 'prompt' },
-        recording: { autoStart: false },
-        parakeet: { enabled: true, device: 'cpu' },
-        smartResponse: { enabled: true, triggerWord: 'Sergio', hotkey: 'Ctrl+Shift+H' },
-        vision: {
-            enabled: false,
-            provider: 'cloud',
-            latencyMode: 'near-realtime',
-            ocrAccuracy: 'standard',
-            samplingStrategy: 'change-based',
-            changeThreshold: 0.1,
-            cloudProvider: 'openai',
-            cloudModel: 'gpt-4o',
-            storeKeyframes: true,
-            maxKeyframesStored: 500,
-        }
-    } as any;
+    if (typeof localStorage !== 'undefined') {
+        try {
+            const stored = localStorage.getItem(CONFIG_KEY);
+            if (stored) {
+                return { ...defaultConfig, ...JSON.parse(stored) };
+            }
+        } catch { /* ignore parse errors */ }
+    }
+    return { ...defaultConfig };
 };
 
 export const saveConfig = (config: AppConfig): void => {
-    console.log('Saved config:', config);
+    if (typeof localStorage !== 'undefined') {
+        try {
+            localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+        } catch { /* ignore storage errors */ }
+    }
 };
