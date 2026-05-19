@@ -17,7 +17,7 @@ permissions:
 jobs:
   build-windows:
     name: Build Windows
-    runs-on: windows-latest
+    runs-on: [self-hosted, Windows, X64]
     steps:
       - uses: actions/checkout@v4
 
@@ -40,7 +40,7 @@ jobs:
 
   build-macos:
     name: Build macOS DMG
-    runs-on: macos-14
+    runs-on: [self-hosted, macOS, ARM64]
     outputs:
       sha256: ${{ steps.dmg.outputs.sha256 }}
     steps:
@@ -178,7 +178,7 @@ jobs:
 
   build-linux:
     name: Build Linux
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v4
 
@@ -209,7 +209,7 @@ jobs:
 
   build-ui:
     name: Build UI
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v4
 
@@ -235,7 +235,7 @@ jobs:
   release:
     name: Create Release
     needs: [build-windows, build-macos, build-linux, build-ui]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v4
         with:
