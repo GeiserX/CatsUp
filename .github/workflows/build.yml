@@ -11,9 +11,9 @@ jobs:
     name: Core TypeScript Tests
     runs-on: [self-hosted, Linux, X64]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Use Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: '20.x'
     - name: Install dependencies
@@ -26,9 +26,9 @@ jobs:
   build-windows:
     runs-on: [self-hosted, Windows, X64]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: 6.0.x
     - name: Restore dependencies
@@ -42,7 +42,7 @@ jobs:
   build-macos:
     runs-on: [self-hosted, macOS, ARM64]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Setup Xcode
       uses: maxim-lobanov/setup-xcode@v1
       with:
@@ -58,9 +58,9 @@ jobs:
   build-linux:
     runs-on: [self-hosted, Linux, X64]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
     - name: Install dependencies
@@ -78,9 +78,9 @@ jobs:
   build-ui:
     runs-on: [self-hosted, Linux, X64]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Use Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: '20.x'
     - name: Install dependencies
